@@ -1,0 +1,40 @@
+#!/bin/bash
+#----------------------------------------------------
+#path and filename
+#----------------------------------------------------
+#mypath=/home/zhaoxin/Codes/MEM
+#source ../path_betts $1 $2
+source ../path_use $1 $2
+#-----------------------------------------------------
+#create parameter file for bryan
+#-----------------------------------------------------
+#remove old one
+rm -f bry_input.txt
+#create new one by add a line for input MC file name
+tmpdata_path=$my_path/tmp_data
+rdmcfile=$tmpdata_path/mc.dat
+echo $rdmcfile > bry_input.txt
+#default image name
+dftfile=$tmpdata_path/deflt.dat
+echo $dftfile >> bry_input.txt
+#initial image file name
+initfile=$tmpdata_path/f0.dat
+echo $initfile >> bry_input.txt
+#final image file name
+finalfile=$tmpdata_path/final.agr
+echo $finalfile >> bry_input.txt
+#number of iteration
+echo 1000 >> bry_input.txt
+#number of error region
+echo 100 >> bry_input.txt
+#initial value of alpha
+echo 5535727.0 >> bry_input.txt
+#MEM method choice (1,3, Bryan) ...
+echo bryanjp >> bry_input.txt
+#MC flag
+#echo 0 >> bry_input.txt
+#print level
+echo 1 >> bry_input.txt
+#
+#run bryan
+./bryan_linux < bry_input.txt

@@ -1,0 +1,317 @@
+The is the Bryan maxent code.  It should compile with any modern fortran
+(F90, F95, 2000 or 2003) compiler.  You will need to link this to blas
+and lapack.  
+
+COMPILE:  This f90 code should compile with any modern fortran compiler.  
+A Sample make file is included, which uses the Intel compiler ifort.  
+
+LINK:  These codes must be linked to blas and lapack libraries.  The 
+sample make file uses the environment variable MKL_LIBS to set the path 
+to blas (in this case to MKL).
+
+RUN: This code should ask for several inputs, including:
+
+____________________________________    
+1.    enter the input data filename:  This is a formatted file which
+contains the number of data (NDATA), the number of pixels (NF), the 
+data and its error, and the kernel.  They should be arranged in the 
+following fashion
+
+
+NDATA  NF
+data    error
+data    error
+data    error
+data    error
+data    error
+data    error
+.
+.
+.
+kernel
+kernel
+kernel
+kernel
+kernel
+kernel
+.
+.
+.
+
+
+Here the kernel should be a matrix kernel(NDATA,NF) and the data above
+should be row ordered (i.e. the NF index should iterate more quickly).
+It it is unclear what this means, take a look in init.for, to see how
+the kernel is read in:
+
+c     Read in the rotated kernel
+      do i=1,ndata
+         do j=1,nf
+            read (11,*) t(i,j)
+         end do
+      end do
+____________________________________
+2.       enter the default filename:  Enter the default model m(w).  This is
+a file with three columns (separated by spaces or ',' or both).
+
+w       m(w)    dw
+
+the first column is the argument of m, generally a frequency but not always.
+The second column is the value of the model at that argument.  The third
+is the argument step (this is needed if, e.g. , you use an inhomogeneous
+frequency grid) needed to complete the integrals over w.
+
+____________________________________
+3. enter the initial image filename:  This should be the initial image,
+defined on the same grid as the model.  The format of this file is 
+two columns:
+
+w       f(w)
+
+where the second column is just the initial image.  I generally take 
+f to be the same as the model, but note that many modern compilers
+do not allow these to be the same file!  I.e. even if you want the
+initial f=m, you may have to copy the image to a different file name
+in order to use it here.
+
+____________________________________
+4.   enter the final image filename:  This is the name of the file
+which contains the deconvolved image.  If this filename has a
+suffix associated with xmgrace (.xvgr, .xmgr or .agr) the final 
+image file will contain xmgrace formatting statements.
+
+____________________________________
+5.                      enter niter:  The maximum number of iterations
+which may be used (I generally set this to 100-but note that an upper 
+limit is compiled into the code).
+
+____________________________________
+6.                   enter nregions:  This number is only used to calculate
+the error bars on the final image.  Note that MEM has no way of calculating
+the error bar on any one point y.  I.e. the error of f(y) is undefined.
+Only the integral of f (optionally multiplied by a function g) over some 
+range  is defined.  In the bryan code the range of w is split into nregions, 
+and the integrated f and error bar of each region is calculated.
+
+____________________________________
+7.                      enter alpha:  Give an initial guess for alpha.
+Here is cannot help you, this is really determined by trial and error.
+Note that if you use the bryan algorithm, the initial alpha is assumed
+to be much larger than the most likely alpha.
+
+____________________________________
+8                    enter method:    What MEM algorithm shall we use?
+Here, you may either enter the numerical value of aflag (0-4) or
+enter the string that describes the method (classic, classicJP, bryan, etc).
+
+      aflag   function
+      0       classicJP         with Jeffrey Prior for tighter fit.
+      1       bryanJP           with Jeffrey Prior for tighter fit.
+      2       classic           without Jeffrey Prior
+      3       bryan             without Jeffrey Prior
+      4       Historic          image fit to chi^2 / ndata =aim
+
+____________________________________
+9.                      enter iasmc: if >0 , then an average spectrum MC 
+(Stochasitic Statistical Inference, SSI) is done upon convergence.  Set 
+this to zero, unless you really know what you are doing.  Note you are 
+only asked this if you use one of the classic MEM methods.
+
+__________________________________________
+10. enter nsweeps,nruns,nwarms,idummy,delu :  The parameters describe
+the MC.  Please see the longer  description of the SSI below.  Note
+you are only asked for these parameters if iasmc>0.
+
+_____________________________________
+11.                     enter iprint:  The print level.  Make this large
+to print lost of information, and small to print little.
+
+
+For the classic MEM, you need to set niter, alpha and nregions.
+The initial alpha is not too critical.  The only concern here is not to make so small
+that the algorithm fails.   Although this will depend on the number of pixels
+and the quality of the data, a good starting point is perhaps 1000 for alpha.
+The value of niter is also not too critical.  You can set this to a large but finite
+number (finite, so the code does not run forever).  Try niter=1000 (it will rarely take
+more than 100 iterations).  the number of regions, nregions only relevant for
+the calculations of the error bars.  Unlike the SSI, MEM cannot calculate the error
+of a point on the image, rather it must calculate the error of the the integrated
+image.  So, to calculate the error, I divide the image up into regions, nregions
+of them, and calculate the integral of the image and its error bar in each region.
+
+For historic mem, you need to specify alpha, niter and nregions.  They should
+be similar to the values specified above.  However, the historic mem works
+by adjusting alpha to achieve a desired value of the chi-squared misfit.
+I define aim=chi-squared/ndata, generally aim should be around one.
+
+For the bryan algorithm, you need to specify the same algorithmic
+parameters as the classic algorithm.  The difference is that the bryan
+algorithm calculates the image which has been averaged over the
+posterior probability P(alpha|D,m,...) of alpha.  I perform this integral
+starting from some large initial value of alpha down to alpha=0.  This
+upper limit the integration is now your initial alpha!  It must be much
+large than the mode value (that which maximizes P(alpha|D,m,...)).
+One way to find this is to make a classic run to find the mode, and use
+an initial alpha which is 100 times larger than the mode to initialize
+the bryan mem.
+
+For the SSI, the situation is more complicated (if you can imagine this).
+Here, the marginalization of the image is done with a Monte Carlo
+simulation.  Since the MC si very expensive, it is not really feasible
+to calculate P(alpha|D,m,...), so we dont really know how to set alpha
+in the SSI.  However, K. Beach has shown that for a reasonable set
+of assumptions the SSI alpha is the same as the MEM alpha.  So,
+to initialize the SSI, I run a classic mem first to fix alpha (that is
+why are asked if you want to run the MC only when you specify
+a classic mem run). 
+
+Once alpha is fixed you need to specify the parameters
+of the MC search.  Unfortunately, some guesswork is required here
+(in part because in the MC, I don't calculate the autocorrelation times--
+we can make the MC more sophisticated if it looks promising for the
+analysis of real data).   The MC works by stepping though the image
+proposing changes at each pixel.  Changes are accepted according
+to a Metropolis algorithm.  Once you have performed a number of
+such sweeps (called warmup sweeps) through the image, the system
+achieves equilibrium, and measurements of the image can begin
+to be made.  In my algorithm, I break the problem up into a set
+of nruns + nwarms runs, each composed of nsweeps . nwarms
+is the number of runs used to achieve equilibrium.  nruns is the
+number of runs used for the measurements.  idummy is a seed
+for the random number generator, and delu (I don't want to
+explain the entomology of this one!) sets the size of the proposed
+changes to the image pixels; it is adjusted automatically in the code
+so don't worry too much about it.  You might just want to set it
+equal to the converged value found in another SSI calculation.
+nsweeps*nruns in an ideal world would only have to be 10000
+or so to achieve an SSI result of 1% accuracy, but things
+are far from ideal.  Perhaps you should set nruns=10 and
+nsweeps=10000.  nwarm should be from fraction of nrun,
+perhaps 2-3. 
+
+ 
+*****************************************************************************
+Toy model
+*****************************************************************************
+This can all be illustrated by playing with the Toy model generator.  
+THis code generates some toy model data, the kernel, default model and
+initial image.  Please read the comments and study the code to learn
+more.
+
+	To compile this code, type
+
+gcc Toy_Generator.c -lm
+
+TO run it, execute ./a.out.  You should see/do something like this
+(these inputs are in the file Toy_input, so you could run
+/a.out<Toy_input):
+
+>> ./a.out
+Enter a random number seed (int): 19
+Enter w0 the mean for the toy: 0.0
+Enter gamma, the toy width: 0.5
+Enter the dw, the frequency step: 0.02
+Enter the nf, the number pixels in A(odd int): 201
+Enter beta, the inverse temperature: 40
+Enter ntau, the number of time steps: 80
+Enter sigma, the absolute error of data: 0.002
+Enter modelWidth, the width of the gaussain model: 1
+dtau= 0.500000
+wmin= -2.000000
+
+
+To analyze this data with bryan, compile the bryan code with the makefile
+and then type ./bryan_linux.  You should see/do something like this (these
+imputs are in Toy_bryan_input, so you could run ./bryan_linux<Toy_bryan_input):
+
+>> ./bryan_linux
+   enter the input data filename:  kerneldata
+      enter the default filename:  model
+enter the initial image filename:  initimage
+  enter the final image filename:  A.dat
+                     enter niter:  100
+                  enter nregions:  20
+                     enter alpha:  1000
+(1,3,Bryan) (0,1,JP) enter aflag:  2
+                     enter iasmc:  0
+                    enter iprint:  1
+                             ftr:   0.150
+                       precision:  0.100E-04
+                            step:   0.500
+                           range:  0.100E-05
+                           testf:  0.100E-04
+                         optionm:    0
+       default model Chisq/ndata:  0.5768E+02
+                 net discrepancy:  0.8224E-02
+                               ns:            19
+
+  iteration #     Alpha
+        1      1000.00000
+        2       870.42168
+        3       759.93374
+        4       665.69875
+        5       585.29970
+        6       516.67901
+        7       458.08458
+        8       408.02346
+        9       365.22494
+       10       328.60671
+       11       297.24839
+       12       270.36601
+       13       247.29322
+       14       227.46400
+       15       210.39768
+       16       195.68578
+       17       182.98263
+       18       171.99495
+       19       162.47446
+       20       154.20992
+       21       147.02373
+       22       140.76323
+       23       135.29980
+       24       130.52455
+       25       126.34396
+       26       122.67897
+       27       119.46075
+       28       116.63148
+       29       114.14132
+       30       111.94690
+       31       110.01088
+       32       108.30124
+       33       106.79052
+       34       105.45461
+       35       104.27223
+       36       103.22486
+       37       102.29656
+       38       101.47356
+       39       100.74320
+       40       100.09564
+       41        99.51989
+       42        99.00895
+       43        98.55445
+       44        98.15112
+       45        97.79201
+       46        97.47313
+       47        97.18937
+       48        96.93658
+       49        96.71235
+       50        96.51242
+       51        96.33509
+       52        96.17677
+       53        96.03583
+       54        95.91064
+       55        95.79924
+       56        95.70003
+ Alpha converged
+
+ Alpha:    95.6118228670336
+ Sigma:    1.00285055609022
+ Ngood:    7.85671649162343
+ Chisq:    72.5551666732391
+ aim=  0.906939583415489
+ weight:   9.527094718587677E-025
+
+	
+
+
+

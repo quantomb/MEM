@@ -1,0 +1,114 @@
+#!/bin/bash
+#
+# This bash script interpolates the self energy in 2D, and the 
+# spectra is calculated along a series of directions (see below) in 
+# the first Brillouin zone:
+#
+#    A(k,w)
+#
+# in the files Akw_spectra_DIRECTIONFILE.  The resistivity, hall coef.,
+# etc are alco calculated in the lifetime approximation and printed into
+# the file resistivity.dat.
+#
+# Inputs to this script include a sequence of files starting with the first 
+# argument # $1 and ending with the second $2.  The job, and other 
+# parameters are set by the other arguments:
+#
+#             $1    $2   
+# runall_mem file1 file2 
+#
+# which are explained if the script is run without arguments (i.e. runall).
+# 
+# SET SOME PATHS
+#
+source ~/mem_locs
+#
+# Establish some more meaningful variables
+#
+file1=$1
+file2=$2
+#
+# If no arguments are given, give help
+#
+if [ "$file1" = "" ] ; then
+  echo 'run_all_spectra_2D file1 file2'
+  echo '           file# first and last filenumbers '
+  exit
+fi
+#
+# If no last argument is given, stop and indicate error
+#
+if [ "$file2" = "" ] ; then
+  echo '   '
+  echo 'SOME ARGUMENTS ARE MISSING'
+  echo '   '
+  exit
+fi
+#
+# Set the increment between file numbers (must be +/- 1)
+#
+if let "$file1 < $file2" ; then
+  inc=1
+else
+  inc=-1
+fi
+#
+# Now that we have the Sigma(K,w), interpolate and calculate the
+# resistivities and the angle-resolved spectra along the directions
+#
+# (0,0)   --> (pi,pi) G-->M
+# (pi,pi) --> (pi,0)  M-->X
+# (pi,0)  --> (0,0)   X-->G
+#
+#
+rm resistivity.dat
+#echo '#   T         rho        R_H         S      eta(0)       L11        L12        L21         L22' | cat >> resistivity.dat
+echo '#   T         rho         S        Kappa    Peltier      R_H       eta(0)      L11        L12        L21         L22' | cat >> resistivity.dat
+let "i=$file1"
+while let "i != file2+inc"     
+do
+if [ -s Sigma"$i"_1.dat ] ; then
+echo 'working on set ' $i
+#
+# (0,0)   --> (pi,pi) G-->M
+#
+cat <<EOF> dummy_spectra
+$i
+0,0,3.1415927,3.1415927,0.5,21
+EOF
+$spectra < dummy_spectra
+mv Akw_spectra Akw_spectra_GM$i
+mv Spectra Spectra_GM$i
+mv Sigmak_F.dat Sigmak_F_GM$i.dat
+#
+# (pi,pi) --> (pi,0)  M-->X
+#
+cat <<EOF> dummy_spectra
+$i
+3.1415927,3.1415927,3.1415927,0,0.5,21
+EOF
+$spectra < dummy_spectra
+mv Akw_spectra Akw_spectra_MX$i
+mv Sigmak_F.dat Sigmak_F_MX$i.dat
+mv Spectra Spectra_MX$i
+#
+# (pi,0)  M-->X
+#
+cat <<EOF> dummy_spectra
+$i
+3.1415927,0,0,0,0.5,21
+EOF
+$spectra < dummy_spectra
+mv Akw_spectra Akw_spectra_XG$i
+mv Sigmak_F.dat Sigmak_F_XG$i.dat
+mv Spectra Spectra_XG$i
+mv Akw0 Akw0$i
+
+cat resis.dat >> resistivity.dat
+else
+echo '******** skipping set ' $i ' no Sigma data for this set ********'
+fi
+let "i=i + inc"
+done
+rm resis.dat
+exit

@@ -1,0 +1,39 @@
+#!/bin/bash
+#
+# This bash shellmakes a false color plot of the data in 
+# False_color_$2$1
+gnuplot=/usr/bin/gnuplot
+if [ "$1" = "" ] ; then
+  echo 'Gnuplot file cut' 
+exit
+fi
+cat <<EOF> dummy
+#set title "OP Bi2201, n=0.84, U=8t"
+#set xlabel "K along $2" font "Helvetica,24"
+set xlabel "K along $2" font "Helvetica,32"
+#set xlabel "K along (0,0)-(pi,pi)"  font "Helvetica,32"
+set ylabel "E/4t"  font "Helvetica,32"
+#set ylabel "E(eV)"
+set xrange [1:101]
+set yrange [-1.5:0]
+set cbrange [0:2.5]
+set tics out
+set xtics 1,25
+set ytics -2.5,0.5
+set ytics font "Helvetica,24"
+set cbtics font "Helvetica,32"
+set format x ""
+splot 'False_color_$2$1'  notitle
+# splot 'False_color_GM6013' using 1:(1.8*$):3 notitle
+#set urange[1:101]
+#replot u,0,5 with lines notitle
+#set palette gray negative
+#set palette rgbformulae 32,26,18
+set pm3d map
+set terminal postscript color
+set output 'False_color_$2$1.ps'
+replot
+EOF
+$gnuplot<dummy
+#rm -f dummy
+echo 'DONE'

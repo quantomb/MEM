@@ -1,0 +1,38 @@
+#--------------------------------------------------------
+# path of MC data
+#--------------------------------------------------------
+my_path=/home/zhaoxinxu/Codes/MEM
+job_index=$1
+ane_index=$2
+job_name=dqmc/2DC16U2d5n1d4E
+#job_name=spin1_chain/OPS1L64
+#job_name=spin1_chain/S1L128B9_ms
+mcdat_path=$my_path/mcdata/$job_name
+tmp_path=$my_path/tmp_data
+dat_name=$mcdat_path/$job_index.dat
+echo "my working path=" $my_path
+echo "mc data path=" $mcdat_path
+echo "mc data name=" $dat_name
+echo "tmp data path=" $tmp_path
+#-----------------------------------------------------
+# default file and initial images
+#-----------------------------------------------------
+#flat default_model
+flatpath=$my_path/readmc_tdmx
+#flatpath=$my_path/readmc_w
+echo "flat_path=" $flatpath
+#for annealing algorithm
+anneal_path=$my_path/results/BRYAN
+anneal_file=$anneal_path/$job_name/$ane_index/dosQMC
+echo "anneal_file=" $anneal_file
+default_model=$my_path/tmp_data/deflt.dat
+initial_image=$my_path/tmp_data/f0.dat
+echo "default_model=" $default_model
+echo "initial_image=" $initial_image
+#------------------------------------------------------
+# path for output data file
+#------------------------------------------------------
+destine_path=$my_path/results/BRYAN/$job_name/$job_index
+rm -rf $destine_path
+mkdir $destine_path
+echo "destine_path=" $destine_path

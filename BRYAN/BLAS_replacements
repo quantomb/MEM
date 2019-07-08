@@ -1,0 +1,14 @@
+error.for:  dgemv('N',nf,ns,1.0d0,Umat,nfmax,uprop,1,0.0d0,fv1,1)   MXVA(Umat, 1,      nfmax,uprop,1,fv1,1,nf,ns)
+error.for:  dgemv('N',ndata,nf,1.0d0,T,ndmax,fprop,1,0.0d0,Tf,1)    MXVA (T,   1,      ndmax,fprop,1,Tf,1,ndata,nf)
+init.for:   dgemv('N',ndata,nf,1.0d0,T,ndmax,model,1,0.0d0,Tf,1)    MXVA (T,   1,      ndmax,model,1,Tf,1,ndata,nf)
+init.for:   dgemv('T',nf,ns,1.0d0,Umat,nfmax,e,1,0.0d0,u,1)         MXVA(Umat, nfmax,  1,e,1,u,1,ns,nf)       <---
+output.for: dgemv('N',ndata,nf,1.0d0,T,ndmax,f,1,0.0d0,Tf,1)        MXVA (T,   1,      ndmax,f,1,Tf,1,ndata,nf)
+update.for: dgemv('N',ndata,nf,1.0d0,T,ndmax,f,1,0.0d0,Tf,1)        MXVA (T,   1,      ndmax,f,1,Tf,1,ndata,nf)
+update.for: dgemv('T',ndata,ns,1.0d0,v,ndmax,dl,1,0.0d0,G,1)        MXVA(v,    ndmax,  1,dl,1,G,1,ns,ndata)   <---
+update.for: dgemv('N',ns,ns,1.0d0,YI,nfmax,RHS,1,0.0d0,YIRHS,1)     MXVA(YI,   1,      nfmax,RHS,1,YIRHS,1,ns,ns)
+update.for: dgemv('N',ns,ns,1.0d0,MYIT,nfmax,du,1,0.0d0,fv1,1)      MXVA(MYIT, 1,      nfmax,du,1,fv1,1,ns,ns)
+update.for: dgemv('N',nf,ns,1.0d0,Umat,nfmax,u,1,0.0d0,fv1,1)       MXVA(Umat, 1,      nfmax,u,1,fv1,1,nf,ns)
+update.for: dgemv('N',ndata,nf,1.0d0,T,ndmax,f,1,0.0d0,Tf,1)        MXVA (T,   1,      ndmax,f,1,Tf,1,ndata,nf)
+update.for: dgemv('N',ns,ns,1.0d0,YI,nfmax,u,1,0.0d0,ds,1)          MXVA(YI,   1,      nfmax,u,1,ds,1,ns,ns)
+update.for: dgemv('N',ns,ns,1.0d0,YI,nfmax,G,1,0.0d0,dl,1)          MXVA(YI,   1,      nfmax,G,1,dl,1,ns,ns)
+update.for: dgemv('N',ns,ns,1.0d0,YI,nfmax,RHS,1,0.0d0,fv1,1)       MXVA(YI,   1,      nfmax,RHS,1,fv1,1,ns,ns)

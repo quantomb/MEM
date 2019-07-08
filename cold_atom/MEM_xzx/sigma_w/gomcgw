@@ -1,0 +1,69 @@
+#!/bin/bash
+#----------------------------------------------------
+#path and filename
+#----------------------------------------------------
+#-----------------------------------------------------
+# default file and initial images
+#-----------------------------------------------------
+#for annealing algorithm
+#cp model_dos deflt.dat
+#cp model_dos f0.dat
+#cp $mem_root/results/BRYAN/HUBB4AU2B4/$1.dat deflt.dat
+#cp $mem_root/results/BRYAN/HUBB4AU2B4/$1.dat f0.dat
+#-----------------------------------------------------
+#create parameter file for rdbin.f
+#-----------------------------------------------------
+#remove old one
+rm -f rdinput.txt
+#create new one by add a line for output file name
+rdoutfile=../tmp_data/rdbinout.dat
+echo $rdoutfile > rdinput.txt
+#select G(k,w_n): 0
+echo 0 >> rdinput.txt
+#number of input file
+echo 1 >> rdinput.txt
+#number of bins
+echo 7200 >> rdinput.txt
+#number of Matsubara Freqnecy
+echo 8 >> rdinput.txt
+#Pmin
+echo 1e-5 >> rdinput.txt
+#coarse grain size
+echo 40 >> rdinput.txt
+#print Histogram or not?
+echo y >> rdinput.txt
+#data file
+echo data2002 >> rdinput.txt
+#input file name
+echo binsw2002.dat >> rdinput.txt
+#ick index
+echo 1 >> rdinput.txt
+#
+#run rdbin
+./rddcams < rdinput.txt
+#-------------------------------------------------------
+#create parameter file for readmc.f
+#-------------------------------------------------------
+#remove the old one
+rm -f mcinput.txt
+#input file name, i.e. output file of rdbins.f
+echo $rdoutfile > mcinput.txt
+#output file name
+rdmcoutfile=../tmp_data/mc.dat
+echo $rdmcoutfile >> mcinput.txt
+#default file name
+dftfile=./model_Akw1
+echo $dftfile >> mcinput.txt
+#eigenvalue file name
+eigfile=../tmp_data/eig.dat
+echo $eigfile >> mcinput.txt
+#value of range, machine precision
+echo 1.12E-020 >> mcinput.txt
+#type of kernel
+echo 6 >> mcinput.txt
+#
+#run readme
+./readmc_linuxms < mcinput.txt
+#-------------------------------------------------------
+# move to tmp_data
+#-------------------------------------------------------

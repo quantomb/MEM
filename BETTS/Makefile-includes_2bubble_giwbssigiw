@@ -1,0 +1,175 @@
+#makefile for Linux boxes
+RM = rm -f
+DOBJ      = module_Global.o dsigcluster.o tables.o 
+#ROBJ      = module_Global.o rddca.o tables.o 
+ROBJMS    = module_Global.o rddcams.o tables.o 
+GSOBJBS    = module_Global.o giwbssigiw.o tables.o
+#ROBJMSNB  = module_Global.o rddcams_lex.o tables.o 
+SOBJ      = module_Global.o sopt_dca.o tables.o 
+#SPOBJ     = module_Global.o module_spectra.o tables.o spectra.o
+SPSOBJ    = module_Global.o module_spectra.o tables.o spectra_star.o
+#EOBJ      = module_Global.o module_spectra.o tables.o energy_surface.o
+#NOBJ      = module_Global.o NCA2model.o
+TWOOBJ    = module_Global.o module_spectra.o tables.o 2default.o
+TBBOBJ    = module_Global.o module_spectra.o tables.o 2bubble.o
+RDMCOBJ   = readmc_linuxms.o
+#RDMCSCOBJ = readmc_linuxms_btc.o
+MFOBJ     = model_filter.o
+#
+#################################
+#       Compiler Flags          #
+#################################
+INTEL_F90 = ifort
+# Flags for debugging
+#FLAGS = -132 -check all -c
+# Flags for pentium, athlon, centrino
+#FLAGS = -132 -O3 -c
+# Flags for recent Intel P4
+#FLAGS = -132 -ipo -O3 -xP -traceback -c
+#FLAGS = -132 -traceback -check all -c
+FLAGS = -132 -c
+F90= $(INTEL_F90)  $(FLAGS) 
+#
+#################################
+#       Linker Flags            #
+#################################
+INTEL_LINK = ifort
+# Flags for debugging
+#LFLAGS =$(MKL_LIBS)
+# Flags for pentium, athlon, centrino
+MKL_LIBS=-lguide -lmkl_intel_thread -lmkl_p4 -lmkl -lpthread
+#
+blas_LIBS=/home1/shiquansu_local/lib/blas_xzx.a
+lapack_LIBS=/home1/shiquansu_local/lib/lapack_xzx.a
+#LFLAGS =$(lapack_LIBS) $(blas_LIBS) 
+LFLAGS=$(MKL_LIBS)
+#
+# Flags for recent Intel P4
+LOFLAGS =-132 -O3 -xP
+link=$(INTEL_LINK) $(LOFLAGS)
+#
+
+   
+all:  $(DOBJ) $(ROBJMS) $(GSOBJBS) $(SOBJ) $(SPSOBJ) $(RDMCOBJ) $(MFOBJ) $(TWOOBJ) $(TBBOBJ)
+#     $(ROBJ) $(ROBJMSNB) $(SPOBJ) $(EOBJ) $(NOBJ) $(RDMCSCOBJ)  
+	$(link) $(DOBJ) -o dsigcluster;
+#	$(link) $(ROBJ) -o rddca;
+	$(link) $(ROBJMS) -o rddcams;
+	$(link) $(GSOBJBS) -o giwbssigiw;
+#	$(link) $(ROBJMSNB) -o rddcams_lex;
+	$(link) $(SOBJ) -o sopt_dca;
+#	$(link) $(SPOBJ) -o spectra;
+	$(link) $(SPSOBJ) -o spectra_star $(LFLAGS);
+#	$(link) $(NOBJ) -o NCA2model;
+#	$(link) $(EOBJ) -o energy_surface; 
+	$(link) $(TWOOBJ) -o 2default;
+	$(link) $(TBBOBJ) -o 2bubble;
+	$(link) $(RDMCOBJ) -o readmc_linuxms $(LFLAGS);
+#	$(link) $(RDMCSCOBJ) -o readmc_linuxms_btc $(LFLAGS);
+	$(link) $(MFOBJ) -o model_filter
+
+model_filter: $(MFOBJ)
+	$(link) $(MFOBJ) $(LFLAGS) -o model_filter 
+
+readmc_linuxms: $(RDMCOBJ)
+	$(link) $(RDMCOBJ) $(LFLAGS) -o readmc_linuxms 
+
+#readmc_linuxms_btc: $(RDMCSCOBJ)
+#	$(link) $(RDMCSCOBJ) $(LFLAGS) -o readmc_linuxms_btc 
+
+dsigcluster: $(DOBJ)
+	$(link) $(DOBJ) $(LFLAGS) -o dsigcluster  
+
+#rddca: $(ROBJ)
+#	$(link) $(ROBJ) -o rddca
+
+rddcams: $(ROBJMS)
+	$(link) $(ROBJMS) -o rddcams
+
+giwbssigiw: $(GSOBJBS)
+	$(link) $(GSOBJBS) -o giwbssigiw
+
+#rddcams_lex: $(ROBJMSNB)
+#	$(link) $(ROBJMSNB) -o rddcams_lex
+
+sopt_dca: $(SOBJ)
+	$(link) $(SOBJ) -o sopt_dca
+
+#spectra: $(SPOBJ)
+#	$(link) $(SPOBJ) -o spectra
+
+spectra_star: $(SPSOBJ)
+	$(link) $(SPSOBJ) -o spectra_star
+
+2default: $(TWOOBJ)
+	$(link) $(TWOOBJ) -o 2default
+
+2bubble: $(TBBOBJ)
+	$(link) $(TBBOBJ) -o 2bubble
+
+#NCA2model: $(NOBJ)
+#	$(link) $(NOBJ) -o NCA2model
+
+#energy_surface: $(EOBJ)
+#	$(link) $(EOBJ) -o energy_surface
+
+readmc_linuxms.o: readmc_linuxms.f 
+	$(F90) readmc_linuxms.f
+
+#readmc_linuxms_btc.o: readmc_linuxms_btc.f 
+#	$(F90) readmc_linuxms_btc.f
+
+model_filter.o: model_filter.f 
+	$(F90) model_filter.f
+
+module_Global.o: module_Global.f 
+	$(F90) module_Global.f
+
+module_spectra.o: module_spectra.f 
+	$(F90) module_spectra.f
+
+dsigcluster.o: module_Global.f dsigcluster.f
+	$(F90) dsigcluster.f
+
+tables.o: module_Global.f tables.f
+	$(F90) tables.f
+
+#rddca.o: module_Global.f rddca.f
+#	$(F90) rddca.f
+
+rddcams.o: module_Global.f rddcams.f
+	$(F90) rddcams.f
+
+giwbssigiw.o: module_Global.f giwbssigiw.f
+	$(F90) giwbssigiw.f
+
+#rddcams_lex.o: module_Global.f rddcams_lex.f
+#	$(F90) rddcams_lex.f
+
+sopt_dca.o: module_Global.f sopt_dca.f
+	$(F90) sopt_dca.f
+
+#spectra.o: module_Global.f module_spectra.f spectra.f
+#	$(F90) spectra.f
+
+spectra_star.o: module_Global.f module_spectra.f spectra_star.f
+	$(F90) spectra_star.f
+
+2default.o: module_Global.f module_spectra.f 2default.f
+	$(F90) 2default.f
+
+2bubble.o: module_Global.f module_spectra.f 2bubble.f
+	$(F90) 2bubble.f
+
+#energy_surface.o: module_Global.f module_spectra.f energy_surface.f
+#	$(F90) energy_surface.f
+
+#NCA2model.o: module_Global.f NCA2model.f
+#	$(F90) NCA2model.f
+
+realclean:
+	$(RM) $(DOBJ) $(ROBJMS) $(GSOBJBS) $(ROBJ) $(SOBJ) $(SPOBJ) $(SPSOBJ) $(NOBJ) $(EOBJ) $(TWOOBJ) $(TBBOBJ) $(RDMCOBJ) $(RDMCSCOBJ) $(MFOBJ) global.mod module_spectra.mod dsigcluster sopt_dca rddca rddcams giwbssigiw spectra spectra_star NCA2model energy_surface 2default 2bubble readmc_linuxms model_filter rddcams_lex global.mod  module_spectra.mod *~
+
+clean:
+	$(RM) $(DOBJ) $(ROBJMS) $(GSOBJBS) $(ROBJ) $(SOBJ) $(SPOBJ) $(SPSOBJ) $(EOBJ) $(NOBJ) $(TWOOBJ) $(TBBOBJ) $(RDMCOBJ) $(RDMCSCOBJ) $(MFOBJ) global.mod  module_spectra.mod *~
+

@@ -1,0 +1,203 @@
+ Done bin=           1  in processor           1  cpu time=
+   55.8621909618378     
+ Done bin=           1  in processor           0  cpu time=
+   59.0668628215790     
+ Done bin=           2  in processor           1  cpu time=
+   57.4613769054413     
+ Done bin=           2  in processor           0  cpu time=
+   57.4617190361023     
+ Done bin=           3  in processor           1  cpu time=
+   57.7206051349640     
+ Done bin=           3  in processor           0  cpu time=
+   57.7206070423126     
+ Done bin=           4  in processor           1  cpu time=
+   55.7139408588409     
+ Done bin=           4  in processor           0  cpu time=
+   55.7140820026398     
+ Done bin=           5  in processor           1  cpu time=
+   57.0447411537170     
+ Done bin=           5  in processor           0  cpu time=
+   57.0448391437531     
+ Done bin=           6  in processor           1  cpu time=
+   57.3045678138733     
+ Done bin=           6  in processor           0  cpu time=
+   57.3045279979706     
+ Done bin=           7  in processor           1  cpu time=
+   56.2282929420471     
+ Done bin=           7  in processor           0  cpu time=
+   56.2284219264984     
+ Done bin=           8  in processor           1  cpu time=
+   36.0949060916901     
+ Done bin=           8  in processor           0  cpu time=
+   36.0951209068298     
+ Done bin=           9  in processor           1  cpu time=
+   31.9110059738159     
+ Done bin=           9  in processor           0  cpu time=
+   31.9109389781952     
+ Done bin=          10  in processor           1  cpu time=
+   33.0630888938904     
+ Done bin=          10  in processor           0  cpu time=
+   33.0630769729614     
+ Done bin=          11  in processor           1  cpu time=
+   32.4047229290009     
+ Done bin=          11  in processor           0  cpu time=
+   32.4047598838806     
+ Done bin=          12  in processor           1  cpu time=
+   32.5194959640503     
+ Done bin=          12  in processor           0  cpu time=
+   32.5194869041443     
+ Done bin=          13  in processor           0  cpu time=
+   37.0804350376129     
+ Done bin=          13  in processor           1  cpu time=
+   37.0794367790222     
+ Done bin=          14  in processor           1  cpu time=
+   56.7166259288788     
+ Done bin=          14  in processor           0  cpu time=
+   56.7166528701782     
+ Done bin=          15  in processor           1  cpu time=
+   55.0150611400604     
+ Done bin=          15  in processor           0  cpu time=
+   55.0137460231781     
+ Done bin=          16  in processor           1  cpu time=
+   32.1789989471436     
+ Done bin=          16  in processor           0  cpu time=
+   32.1791160106659     
+ Done bin=          17  in processor           1  cpu time=
+   31.8134009838104     
+ Done bin=          17  in processor           0  cpu time=
+   31.8135821819305     
+ Done bin=          18  in processor           1  cpu time=
+   42.3945820331573     
+ Done bin=          18  in processor           0  cpu time=
+   42.3953788280487     
+ Done bin=          19  in processor           1  cpu time=
+   56.6413700580597     
+ Done bin=          19  in processor           0  cpu time=
+   56.6414208412170     
+ Done bin=          20  in processor           1  cpu time=
+   56.1962778568268     
+ Done bin=          20  in processor           0  cpu time=
+   56.1963908672333     
+ Done bin=          21  in processor           1  cpu time=
+   50.4453701972961     
+ Done bin=          21  in processor           0  cpu time=
+   50.4444148540497     
+ Done bin=          22  in processor           1  cpu time=
+   34.5790009498596     
+ Done bin=          22  in processor           0  cpu time=
+   34.5791130065918     
+ Done bin=          23  in processor           1  cpu time=
+   34.2602589130402     
+ Done bin=          23  in processor           0  cpu time=
+   34.2602269649506     
+ Done bin=          24  in processor           1  cpu time=
+   49.4009978771210     
+ Done bin=          24  in processor           0  cpu time=
+   49.4019458293915     
+ Done bin=          25  in processor           1  cpu time=
+   56.4095399379730     
+ Done bin=          25  in processor           0  cpu time=
+   56.4094660282135     
+ Done bin=          26  in processor           1  cpu time=
+   56.3813920021057     
+ Done bin=          26  in processor           0  cpu time=
+   56.3814461231232     
+ Done bin=          27  in processor           1  cpu time=
+   43.7238001823425     
+ Done bin=          27  in processor           0  cpu time=
+   43.7227659225464     
+ Done bin=          28  in processor           1  cpu time=
+   39.6445429325104     
+ Done bin=          28  in processor           0  cpu time=
+   39.6455001831055     
+ Done bin=          29  in processor           1  cpu time=
+   56.4212899208069     
+ Done bin=          29  in processor           0  cpu time=
+   56.4213831424713     
+ Done bin=          30  in processor           1  cpu time=
+   55.9237098693848     
+ Done bin=          30  in processor           0  cpu time=
+   55.9238679409027     
+ Done bin=          31  in processor           1  cpu time=
+   54.3069138526917     
+ Done bin=          31  in processor           0  cpu time=
+   54.3055319786072     
+ Done bin=          32  in processor           1  cpu time=
+   33.3010978698730     
+ Done bin=          32  in processor           0  cpu time=
+   33.3012259006500     
+ Done bin=          33  in processor           1  cpu time=
+   33.3439691066742     
+ Done bin=          33  in processor           0  cpu time=
+   33.3440499305725     
+ Done bin=          34  in processor           1  cpu time=
+   47.1816740036011     
+ Done bin=          34  in processor           0  cpu time=
+   47.1826078891754     
+ Done bin=          35  in processor           0  cpu time=
+   56.5727081298828     
+ Done bin=          35  in processor           1  cpu time=
+   56.5726869106293     
+ Done bin=          36  in processor           1  cpu time=
+   56.3215520381927     
+ Done bin=          36  in processor           0  cpu time=
+   56.3215420246124     
+ Done bin=          37  in processor           1  cpu time=
+   48.5322380065918     
+ Done bin=          37  in processor           0  cpu time=
+   48.5414340496063     
+ Done bin=          38  in processor           1  cpu time=
+   31.8994860649109     
+ Done bin=          38  in processor           0  cpu time=
+   31.8890280723572     
+ Done bin=          39  in processor           1  cpu time=
+   31.9344780445099     
+ Done bin=          39  in processor           0  cpu time=
+   31.9344601631165     
+ Done bin=          40  in processor           1  cpu time=
+   52.6838781833649     
+ Done bin=          40  in processor           0  cpu time=
+   52.6848609447479     
+ Done bin=          41  in processor           1  cpu time=
+   55.5565450191498     
+ Done bin=          41  in processor           0  cpu time=
+   55.5567250251770     
+ Done bin=          42  in processor           1  cpu time=
+   55.7423880100250     
+ Done bin=          42  in processor           0  cpu time=
+   55.7423529624939     
+ Done bin=          43  in processor           1  cpu time=
+   55.4008891582489     
+ Done bin=          43  in processor           0  cpu time=
+   55.4008560180664     
+ Done bin=          44  in processor           1  cpu time=
+   54.2090351581573     
+ Done bin=          44  in processor           0  cpu time=
+   54.2090539932251     
+ Done bin=          45  in processor           1  cpu time=
+   56.1813127994537     
+ Done bin=          45  in processor           0  cpu time=
+   56.1814351081848     
+ Done bin=          46  in processor           1  cpu time=
+   56.2790939807892     
+ Done bin=          46  in processor           0  cpu time=
+   56.2789897918701     
+ Done bin=          47  in processor           1  cpu time=
+   56.2881159782410     
+ Done bin=          47  in processor           0  cpu time=
+   56.2881779670715     
+ Done bin=          48  in processor           1  cpu time=
+   37.4029331207275     
+ Done bin=          48  in processor           0  cpu time=
+   37.4017820358276     
+ Done bin=          49  in processor           1  cpu time=
+   31.7324910163879     
+ Done bin=          49  in processor           0  cpu time=
+   31.7325098514557     
+ Done bin=          50  in processor           1  cpu time=
+   31.7301418781281     
+ Total time=   31.7302498817444     
+ Done bin=          50  in processor           0  cpu time=
+   31.7301111221313     
+ xdd_T:   1.24148618153933      xkk_T:   131.230766595358     
+ Total time=   31.7307322025299     

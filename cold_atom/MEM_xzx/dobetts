@@ -1,0 +1,18 @@
+# parameter:
+# $1: current data index
+# $2: index of higher temperature data
+# $3: number of data bins
+# $4: coarse grain size
+# $5: control of default model
+source ./path_betts $1 $2
+cd readmc_tdmx
+./gobetts $1 $2 $3 $4 $5
+#cd ../tmp_data/
+#./bakdat
+cd ..
+./dobryan $1 $2
+head -n 15 BRYAN/dosQMC
+echo '***********************'
+tail -n 15 BRYAN/dosQMC
+#cp results/$1_bak.dat tmp_results/
+./bakbetts $1 $2

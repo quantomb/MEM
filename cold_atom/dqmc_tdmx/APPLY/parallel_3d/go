@@ -1,0 +1,1 @@
+mpiexec -n 2 ./3dmpi </dev/null&

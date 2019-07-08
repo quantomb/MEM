@@ -1,0 +1,153 @@
+:
+# bash shell
+#
+# THIS SCRIPT ANALYTICALY CONTINUES THE DATA IN THE FILE GIVEN BY THE FIRST
+# ARGUMENT $1 using the kernel $2 at the K point $3 using the model
+# $4 and aflag $5.  The results are plotted with xmgr if $7 is nonzero.
+#
+# runone file kernel ick model aflag print
+#
+# SET SOME PATHS
+#
+# Path to rddca executable
+rddca=/home/rawley/sumith/SPECTRA_SIGN/1D/rddca
+#rddca=/home/macridin/MEM/RDDCA/rddcaboot
+#rddca=/home/wanderer/jarrell/projects/CLUSTER/QMC/MPI/MULTI/INTPLAN/ANALYZE/SPECTRA/rddca
+# Path to the readmc executable
+readmc=/home/rawley/sumith/SPECTRA_SIGN/readmc_linux
+#readmc=/home/wanderer/jarrell/projects/MEM/mem_LINUX/mem3/readmc/readmc_linux
+# Path to the bryan executable
+bryan=/home/rawley/sumith/SPECTRA_SIGN/bryan_linux 
+#bryan=/home/wanderer/jarrell/projects/MEM/mem_LINUX/mem3/bryan_linux
+# Path to the strip1 perl script
+strip1=/home/rawley/sumith/MEM1/strip1
+#strip1=/home/wanderer/jarrell/bin/strip1
+# Path to the dsigcluster executable
+dsigcluster=/home/rawley/sumith/MEM/RDDCA/dsigcluster
+#dsigcluster=/home/wanderer/jarrell/projects/CLUSTER/QMC/MPI/MULTI/INTPLAN/ANALYZE/SPECTRA/dsigcluster
+# Path to the xmgr (xmgrace) executable
+xmgr=/usr/bin/X11/xmgr
+#
+kernel=$2
+alpha=400000
+aflag=$5
+model=$4
+pmin=$6
+print=$7
+coarse=20
+if [ "$1" = "" ] ; then
+  echo 'runone_mem file kernel ick model aflag Pmin print'
+  echo '           kernel =1, symmetric fermion'
+  echo '           kernel =2, asymmetric fermion'
+  echo '           kernel =3, symmetric boson'
+  echo '           ick    =0, ==> r=0'
+  echo '           model  file containing the default model'
+  echo '           aflag  function'
+  echo '             0     Classic  w/JP '
+  echo '             1     Bryan    w/JP '
+  echo '             2     Classic  wo/JP'
+  echo '             3     Bryan    wo/JP'
+  echo '           Pmin   Minimum probablility for data'
+  echo '           print  = 1 ==> plot A_bar'
+  echo '           print  = 2 ==> plot A_bar and Sigma'
+  exit
+fi
+if [ $kernel -le 2 ] ; then
+  ig=0
+  name=dos
+else
+  ig=1
+  name=chi
+fi
+# uncompress bins*
+#
+#
+# READIN AND ANALYZE THE BINNED DATA
+#*******************************************************
+# When entering data for rddca first  input is the     *
+# answer for sign inclded.   last is for bootstrap     *
+#*******************************************************
+cat <<EOF> dummy
+1
+dataq$name$1_$3
+$ig
+1
+111111
+$pmin
+$coarse
+n
+bins$1
+$3 
+0
+EOF
+$rddca < dummy > out
+#
+# DIAGONALIZE THE COVARIANCE OF THE DATA
+#
+cat <<EOF> dummy
+dataq$name$1_$3
+datar
+$model
+eigs.agr
+1.0e-9
+$kernel
+EOF
+$readmc <dummy >out
+rm dummy out
+$strip1 eigs.agr > eigs$name$1_$3.agr
+#echo 'Done data reduction and analysis'
+#
+# ANALYTICALLY CONTINUE WITH BRYAN
+#
+cp -r $model model1
+cat <<EOF> dummy
+datar
+$model
+model1
+$name.xvgr
+200
+40
+$alpha
+$aflag
+0
+1
+EOF
+$bryan <dummy >out
+$strip1 $name.xvgr > $name$1_$3.agr
+$strip1 residual.xvgr > res$name$1_$3.agr
+cp fort.99 $name$1_$3QMC
+rm dummy out
+if [ "$3" != "0" ] ; then
+if [ "$ig" = "0" ] ; then
+echo 'Done A(K,w) ',`grep weight $name$1_$3.agr`
+else
+echo "Done chi''(K,w)/w ",`grep weight $name$1_$3.agr`
+fi
+else
+if [ "$ig" = "0" ] ; then
+echo 'Done N(w) ', `grep weight $name$1_$3.agr`
+else
+echo "Done chi''(w)/w ", `grep weight $name$1_$3.agr`
+fi
+fi
+#if [ "$3" != "0" ] ; then
+#if [ "$ig" = "0" ] ; then
+#cat <<EOF> dummy
+#fort.98
+#sigma$1.dat
+#$3
+#0.00000001
+#0.0
+#EOF
+#$dsigcluster <dummy>out
+#rm dummy out
+#echo 'Done self energy calculation'
+#mv Sigma.dat Sigma$1_$3.dat
+#fi
+#fi
+if [ "$print" != "0" ] ; then
+$xmgr $name$1_$3.agr 2> /dev/null &
+fi
+if [ "$print" = "2" ] ; then
+$xmgr Sigma$1_$3.dat 2> /dev/null &
+fi

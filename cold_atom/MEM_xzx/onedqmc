@@ -1,0 +1,14 @@
+# parameter:
+# $1: index of momentum k
+# $2: number of binned data
+# $3: number of Matsubara frequency used in MEM
+source ./path_use $1 $2
+cd readmc_tdmx
+./godqmc $1 $2 $3 $4 $5
+#cd ../tmp_data/
+#./bakdat
+cd ..
+./dobryan $1 $2
+tail -n 15 BRYAN/dosQMC
+#cp results/$1_bak.dat tmp_results/
+./bakdat $1 $2

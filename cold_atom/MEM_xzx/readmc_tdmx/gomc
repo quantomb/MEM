@@ -1,0 +1,79 @@
+#!/bin/bash
+# parameter:
+# $1: do random swap data sequence or not (1/0)
+# $2: index of momentum k
+# $3: number of binned data
+# $4: number of skip in imaginary time direction
+# $5: coarse grain size for input data
+# $6: number of Matsubara frequency used in MEM
+#----------------------------------------------------
+#path and filename
+#----------------------------------------------------
+source ../path_use
+data=$dat_name
+adex=.dat
+adex1=_bak
+#echo "my working path=" $my_path
+#echo "mc data path=" $mcdat_path
+#echo "mc data name=" $data$index$adex
+#-----------------------------------------------------
+# default file and initial images
+#-----------------------------------------------------
+#echo $index > mdlinput.txt
+#./disp.out < mdlinput.txt
+cp $flatpath/deflt.dat ../tmp_data/deflt.dat
+cp $flatpath/deflt.dat ../tmp_data/f0.dat
+#for annealing algorithm
+#echo "default model is:" $anneal_file/$index$adex1$adex
+#cp $anneal_file ../tmp_data/deflt.dat
+#cp $anneal_file ../tmp_data/f0.dat
+#-----------------------------------------------------
+#create parameter file for rdbin.f
+#-----------------------------------------------------
+#remove old one
+rm -f rdinput.txt
+#create new one by add a line for output file name
+rdoutfile=$tmp_path/rdbinout.dat
+echo $rdoutfile > rdinput.txt
+#number of input file
+echo 1 >> rdinput.txt
+#number of bins
+echo $1 >> rdinput.txt
+#number of skip
+echo $2 >> rdinput.txt
+#coarse grain size
+echo $3 >> rdinput.txt
+#Matsubara frequency or not (1/0)?
+echo 0 >> rdinput.txt
+#Which suscept?1<KK>,2<KD+DK>,3<DD>,4<EE>
+echo $4 >> rdinput.txt
+#print Histogram or not?
+echo y >> rdinput.txt
+#data should be symmetrize or not?
+echo y >> rdinput.txt
+#input file name
+echo $data >> rdinput.txt
+#run rdbin
+./rdbin.out < rdinput.txt
+#-------------------------------------------------------
+#create parameter file for readmc.f
+#-------------------------------------------------------
+#remove the old one
+rm -f mcinput.txt
+#input file name, i.e. output file of rdbins.f
+echo $rdoutfile > mcinput.txt
+#output file name
+rdmcoutfile=$tmp_path/mc.dat
+echo $rdmcoutfile >> mcinput.txt
+#default file name
+dftfile=$tmp_path/deflt.dat
+echo $dftfile >> mcinput.txt
+#eigenvalue file name
+eigfile=$tmp_path/eig.dat
+echo $eigfile >> mcinput.txt
+#value of range, machine precision
+echo 1.12E-20 >> mcinput.txt
+#type of kernel
+echo 3 >> mcinput.txt
+#run readme
+./readmc_linuxms < mcinput.txt

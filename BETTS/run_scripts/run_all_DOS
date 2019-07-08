@@ -1,0 +1,107 @@
+#!/bin/bash
+#
+# This bash script analytically continues the coarse-grained single particle 
+# density of states, 
+#
+#     N(w) . 
+#
+# Inputs to this script include a sequence of files starting with the first 
+# argument # $1 and ending with the second $2.  The kernel, and other 
+# parameters are set by the other arguments:
+#
+#             $1    $2     $3    $4    $5    $6    $7    $8   
+# runall_mem file1 file2 kernel aflag Pmin coarse print cflag
+#
+# which are explained if the script is run without arguments (i.e. runall).
+# This codes in this script should detect the dimensionality of the data,
+# so this code should work for ndim=1,2 or 3.
+# 
+# SET SOME PATHS
+#
+source ~/mem_locs
+#
+# Establish some more meaningful variables
+#
+file1=$1
+file2=$2
+kernel=$3
+aflag=$4
+pmin=$5
+coarse=$6
+idraw=$7
+cflag=$8
+#
+# If no arguments are given, give help
+#
+if [ "$file1" = "" ] ; then
+  echo 'runall_all_DOS file1 file2 kernel aflag Pmin coarse print cflag'
+  echo '               file# first and last filenumbers of bins'
+  echo '               kernel =1, symmetric fermion'
+  echo '               kernel =2, asymmetric fermion'
+  echo '               kernel =3, symmetric boson'
+  echo '               aflag   function'
+  echo '                 0     Classic  w/JP '
+  echo '                 1     Bryan    w/JP '
+  echo '                 2     Classic  wo/JP'
+  echo '                 3     Bryan    wo/JP'
+  echo '               Pmin   Minimum probablility for data'
+  echo '               coarse coarse-graining bin size'
+  echo '               print  if not 0, then plot Akw (1) and Sigma(2)'
+  echo '               cflag  compression/uncompression level'
+  echo '                 0    compress nothing'
+  echo '                 1    compress bins files'
+  echo '                 2    compress bins and sigma.dat files'
+  exit
+fi
+#
+# If no last argument is given, stop and indicate error
+#
+if [ "$cflag" = "" ] ; then
+  echo '   '
+  echo 'SOME ARGUMENTS ARE MISSING'
+  echo '   '
+  exit
+fi
+#
+# Set the increment between file numbers (must be +/- 1)
+#
+if let "$file1 < $file2" ; then
+  inc=1
+else
+  inc=-1
+fi
+#
+# Analytically continue the DOS
+#
+ick=0
+let "i=$file1"
+cp model_dos model_next
+
+while let "i != file2+inc"
+do
+  echo 'working on the DOS of set ' $i
+  if [ -s "bins$i.dat.bz2" ] ; then
+    bunzip2 "bins$i.dat.bz2"
+  fi
+  if [ -s "sigma$i.dat.bz2" ] ; then
+    bunzip2 "sigma$i.dat.bz2"
+  fi
+  $runone_mem $i $kernel $ick model_next $aflag $pmin $coarse 0 $idraw
+  let "i=i + inc"
+done
+#
+# optionally compress the binned data (cflag>0) and the sigma files (cflag>1)
+# 
+let "i=$file1"
+while let "i != file2+inc"
+do
+  if let "cflag > 0"; then
+    bzip2 "bins$i.dat"
+  else 
+    if let "cflag > 1"; then
+      bzip2 "sigma$i.dat"
+    fi
+  fi
+  let "i=i + inc"
+done
+exit

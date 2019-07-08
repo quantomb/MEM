@@ -1,0 +1,30 @@
+ kerneldata
+ model
+ initimage
+ mark.agr
+ 100
+ 4
+ 1000
+ classic
+ 0
+ 1
+ 
+tcsh> ../BRYAN/bryan_linux
+   enter the input data filename:   kerneldata
+      enter the default filename:   model
+enter the initial image filename:   initimage
+  enter the final image filename:   mark.agr
+                     enter niter:   100
+                  enter nregions:   4
+                     enter alpha:   1000
+Set the MEM Method
+classicJP for classic  MEM w/JP
+bryanJP   for bryan    MEM w/JP
+classic   for classic  MEM wo/JP
+bryan     for bryan    MEM wo/JP
+historic  for historic MEM
+                    enter method:   classic
+         enter iasmc(1f/f 2f 3u):   0
+                    enter iprint:   1
+
+

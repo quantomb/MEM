@@ -1,0 +1,8 @@
+/home/zhaoxinxu/Codes/MEM/tmp_data/rdbinout.dat
+1
+1080
+1
+2
+y
+y
+/home/zhaoxinxu/Codes/MEM/mcdata/dqmc/2DC16U2d5n1d4E/B6ddt.dat

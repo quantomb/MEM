@@ -1,0 +1,12 @@
+#source path_use
+#cp results/tmp_MC/mc_$1.dat tmp_data/mc.dat
+cd sigma_w
+./gomc $1 $2
+cd ../BRYAN
+./gobryan
+mv dosQMC ../results/$1.dat
+##mv fort.98 ../results/$2.dat
+mv error.dat ../results/$1_error.dat
+cd ../tmp_data/
+mv final.agr ../results/$1.agr
+cd ..

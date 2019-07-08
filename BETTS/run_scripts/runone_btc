@@ -1,0 +1,167 @@
+#!/bin/bash
+# 
+# THIS BASH SCRIPT ANALYTICALY CONTINUES THE DATA IN THE FILE GIVEN BY THE FIRST
+# ARGUMENT $1 using the job $2 at the K point $3 using the model $4 and 
+# aflag $5.  The minimum ftest probabilbity for accepted data is Pmin, $6, and
+# the coarse-graining bin size is $7.  The results are plotted with xmgr if $7 
+# is nonzero.
+#
+#         $1    $2  $3     $4    $5    $6      $7    $8    $9 
+# runone file  ick model aflag Pmin  coarse  imasc  print  shift
+#
+# SET SOME PATHS (rddca, readmc, bryan, strip1, dsigcluster, xmgr...)
+#
+source ~/mem_locs
+#
+# SET SOME VARIABLES
+#
+file=$1
+ick=$2
+model=$3
+aflag=$4
+pmin=$5
+coarse=$6
+imasc=$7
+print=$8
+shift=$9
+alpha=10000
+#
+# If there are no arguments, write some instructions
+#
+if [ "$1" = "" ] ; then
+  echo 'runone file ick model aflag Pmin coarse imasc  print shift'
+  echo '           file, file number'
+  echo '           ick    =0, ==> r=0'
+  echo '           model  file containing the default model'
+  echo '           aflag  function'
+  echo '             0    Classic  w/JP '
+  echo '             1    Bryan    w/JP '
+  echo '             2    Classic  wo/JP'
+  echo '             3    Bryan    wo/JP'
+  echo '           Pmin   Minimum probablility for data'
+  echo '           coarse coarse-graining bin size'
+  echo '           imasc  0 without ssi method'
+  echo '           imasc  gt 0 with ssi method'
+  echo '                  1  f-space MC with 1/f metric'
+  echo '                  2  f-space MC'
+  echo '                  3  u-space MC'
+  echo '                  4  f-space PT'
+  echo '           print  = 1 ==> plot A_bar'
+  echo '           shift  anomalous shift'
+  exit
+fi
+#
+# If no last argument is given, stop and indicate error
+#
+if [ "$shift" = "" ] ; then
+  echo '   '
+  echo 'SOME ARGUMENTS ARE MISSING'
+  echo '   '
+  exit
+fi
+# Figure out whether dos or dynamic susceptibility is calculated
+# and set the name accordingly.
+#
+  ig=7  # read F
+  name=anom
+  kernel=$job
+# uncompress bins*
+#
+#
+# READIN AND ANALYZE THE BINNED DATA
+# 
+# Generate the inputs to rddca in the file dummy
+#
+cat <<EOF> dummy
+dataq$name$1_$ick
+$ig
+1
+8000
+$pmin
+$coarse
+n
+bins$1
+$ick 
+0
+EOF
+#
+# Run rddca; readin the binned data.
+#
+$rddca < dummy > out
+echo 'rddca done'
+#
+# DIAGONALIZE THE COVARIANCE OF THE DATA
+#
+# Generate the inputs to readmc in the file dummy
+#
+cat <<EOF> dummy
+dataq$name$1_$ick
+datar
+$model
+eigs.agr
+1.e-10
+$shift
+EOF
+#
+# Run readmc.  Generate the kernel.
+#
+$readmc_sc <dummy >out
+echo 'readmc done'
+rm dummy out
+$strip1 eigs.agr > eigs$name$1_$ick.agr
+#echo 'Done data reduction and analysis'
+#
+# ANALYTICALLY CONTINUE WITH BRYAN
+#
+# first buffer the model, since gfortran does not like having the same
+# file open as two units
+cp -f $model model1
+cp -f $model model2
+#
+# Generate the inputs to bryan in the file dummy
+#
+if [ "$aflag" = "0" ]||[ "$aflag" = "2" ]; then
+cat <<EOF> dummy
+datar
+model1
+model2
+$name.agr
+200
+10
+$alpha
+$aflag
+none
+1
+EOF
+elif [ "$aflag" = "1" ]||[ "$aflag" = "3" ]; then
+cat <<EOF> dummy
+datar
+model1
+model2
+$name.agr
+200
+10
+$alpha
+$aflag
+1
+EOF
+else
+echo 'Bad aflag'
+exit
+fi
+rm -f dosQMC
+# removal of dosQMC is required for gnufortran compiler
+$bryan <dummy >out
+$strip1 $name.agr > $name$1_$ick.agr
+$strip1 residual.xvgr > res$name$1_$ick.agr
+cp -f dosQMC $name$1_"$ick"QMC
+cp -f dosQMC model_next
+#rm dummy out
+if [ "$ick" != "0" ] ; then
+echo 'Done A_12(K,w) ',`grep weight $name$1_$ick.agr`
+else
+echo "Done A_12(R=0,w) ", `grep weight $name$1_$ick.agr`
+fi
+if [ "$print" != "0" ] ; then
+$xmgr $name$1_$ick.agr 2> /dev/null &
+fi

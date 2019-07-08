@@ -1,0 +1,5 @@
+image.dat
+sigma.dat
+1
+1e-8
+0.8

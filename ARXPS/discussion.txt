@@ -1,0 +1,77 @@
+ 
+it's probably better if I just explain what we do.
+
+Although we will experiment, the simplest kernel is composed of
+exponential decay electron
+attenuation functions vs depth, z, calculated over the range 0 <= z <= Z,
+where, Z is usually
+4 - 5 times the electron attenuation length, lambda, or wherever the
+function drops to some
+minimum value.  This represents the probability (I know, I have to watch
+how I use that word
+when I'm talking to Bayesians) that a photoelectron created at depth z
+escapes the surface
+and is counted. There is a different function for each angle at which the
+photoelectron spectral
+intensities are measured. The functional form is given as
+
+K(z, lambda, TOA) = exp(-z / (lambda * sin(TOA)))
+
+We have been using TOA = 20, 27, 35, 50, and 80 degree from sample surface
+- this is more or
+less user choice and I think Bob uses somewhat different angles that span
+roughly the same space.
+Lambda (used 3.4 nm below) is calculated for each electron energy
+(species) using a published
+method (TPP-2M) and z may be in ~0.1 or 0.2 nm increments from 0 to ~4 - 5
+lambda.
+
+So, the kernel consists of a kernel matrix that is n depths x m TOAs.  I
+plotted an example kernel
+and include it below.  I overlayed the attenuation function on the default
+model in the lower plot.  Note
+that there is a separate kernel for each species (i.e., lambda).  Note
+that the calculation is extended
+deeper in the solid than displayed - it should go to a depth where the
+attenuation function approaches
+0 (or one could do an analytical calculation of the remaining intensity
+after all the profiles go flat).
+
+Then, the measured data are simulated as the inner product of the test
+profile for the species with the
+kernel for the species.  There are 4 species and 5 angles so the measured
+data matrix, D, is 5 x 4.
+
+I think that this will be a lot easier if we generate a dataset for you.
+
+Dave
+
+PS I have copied my colleague from ULVAC-PHI on this email.  Dr Tanaka is
+working on the instrument
+model for these calculations.
+
+
+
+
+
+the sigmoid (Fermi) function I use is given below so your alpha is my
+Height, or initial
+concentration estimate assuming a uniform film, your beta is my IntWidth
+(interface width
+or width in z of the transition region going from Height to zero
+concentration), and your delta
+is my Position in z of the (0.5 * Height) point on the sigmoid function. I
+probably misunderstand
+but I interpret what you say below to mean that you would like to fit the
+measured data (intensities
+for 4 species and 5 angles) to optimize these (12 in the case of 4
+species) parameters instead of
+just setting them to not unreasonable values?  The data are unlikely to be
+fit very well by these
+uniform functions so I do not know what is to be gained by this?
+
+Sigmoid = Height ./ (1.0 + exp(-IntWidth * (X - Position))) ;
+
+Also, as we discussed, I don't know how the default model can be made less
+informative unless you
+broaden the interface region or just assume there is no interface?

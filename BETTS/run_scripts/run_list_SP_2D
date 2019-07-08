@@ -1,0 +1,184 @@
+#!/bin/bash
+#
+# This bash script analytically continues the coarse-grained single particle 
+# density of states and coarse-grained spectra, 
+#
+#     N(w)  and Abar(K,w) . 
+#
+# dsigcluster employs a hilbert transform and a root finder to calculate
+#
+#    Gbar(K,w)  and Sigma(K,w)
+#
+# and Sigma is printed into the files SigmaFILE_ick.dat.  This self energy
+# is interpolated, using star interpolation in 2D (hence the 2D in the name
+# of this script), and the spectra is calculated along a series of directions 
+# (see below) in the first Brillouin zone:
+#
+#    A(k,w)
+#
+# in the files Akw_spectra_DIRECTIONFILE.  The resistivity, hall coef.,
+# etc are alco calculated in the lifetime approximation and printed into
+# the file resistivity.dat.
+##
+# Inputs to this script are read from the standard input file.  Each line 
+# describes an argument
+#
+#  $1     $2   $3    $4   $5    $6    $7    $8  
+# file  job Ncw aflag Pmin coarse print cflag
+#
+# file is the file number
+# job is the job type
+#  1   symmetric fermion'
+#  2   asymmetric fermion'
+# Ncw is the number of K in the IR
+# aflag determines the MEM algorithm used
+#  0     Classic  w/JP 
+#  1     Bryan    w/JP 
+#  2     Classic  wo/JP
+#  3     Bryan    wo/JP
+# Pmin sets the minimum ftest probability for data to be used
+# coarse set the coarse-graining size for rebinning sequential QMC data
+# print sets the print level 
+# cflag determines whether the bin and sigma files are compressed
+#  0    compress nothing
+#  1    compress bins files
+#  2    compress bins and sigma.dat files
+# 
+# SET SOME PATHS and delete old files
+#
+source ~/mem_locs
+rm resistivity.dat
+echo '#   T    rho    R_H ' | cat >> resistivity.dat
+#
+# start reading the parameters
+#
+imfirst=0
+while [ true ]
+  do
+  read  file  job Ncw aflag pmin coarse idraw cflag
+  #
+  if [ ! "$file" ]
+    then
+    exit
+  fi
+  if let "imfirst == 0"
+  then
+    #
+    # copy the models to some disposable files
+    #
+    echo 'setting models'
+    ick=1
+    while let "ick <= Ncw"
+    do
+      cp model_Akw$ick dump$ick
+      let "ick=ick + 1"
+    done
+    cp model_dos dumpdos
+    imfirst=1
+  fi
+  #
+  # Uncompress the bin and sigma files if necessary.
+  #
+  if [ -s "bins$file.bz2" ] ; then
+    bunzip2 "bins$file.bz2"
+  fi
+  if [ -s "sigma$file.dat.bz2" ] ; then
+    bunzip2 "sigma$file.dat.bz2"
+  fi
+  #
+  # DOS
+  #
+  echo 'working on the DOS of set ' $file
+  ick=0  
+  $runone_mem $file $job $ick dumpdos $aflag $pmin $coarse 0  $idraw
+  cp -f model_next dumpdos
+  #
+  # Akw
+  #
+  ick=1
+  while let "ick <= Ncw"
+  do
+    echo 'working on the spectra of set ' $file 'with ick=' $ick
+    $runone_mem $file $job $ick dump$ick $aflag $pmin $coarse 0  $idraw
+    cp -f model_next dump$ick
+    let "ick=ick + 1"
+  done
+  #
+  # Now we have the DOS and Akw corressponding to file file.  We  
+  # calculate the self energy, Sigma(K,w), using dsigcluster.
+  #
+  ick=1
+  while let "ick <= Ncw"
+  do
+      echo 'Calculating Sigma(K,w) of set ' $file 'with ick=' $ick
+
+      cp dos"$file"_"$ick"QMC model_next
+      cat <<EOF> dummy
+      model_next
+      sigma$file.dat
+      $ick
+      0.00000001
+      0.0
+EOF
+      $dsigcluster <dummy>out
+      rm dummy out
+      mv Sigma.dat Sigma"$file"_"$ick".dat
+
+    let "ick=ick + 1"
+  done  
+  #
+  # Now that we have the Sigma(K,w), interpolate to calculate the
+  # the angle-resolved spectra along the directions
+  #
+  # (0,0)   --> (pi,pi) G-->M
+  # (pi,pi) --> (pi,0)  M-->X
+  # (pi,0)  --> (0,0)   X-->G
+  #
+  # In 2D, we also calculate the resistivity and Hall coefficient.
+  #
+  #
+  # (0,0)   --> (pi,pi) G-->M
+  #
+  cat <<EOF> dummy
+  $file
+  0,0,3.1415927,3.1415927,0.5,21
+EOF
+  $spectra < dummy > /dev/null
+  mv Akw_spectra Akw_spectra_GM$file
+  mv Spectra Spectra_GM$file
+  #
+  # (pi,pi) --> (pi,0)  M-->X
+  #
+  cat <<EOF> dummy
+  $file
+  3.1415927,3.1415927,3.1415927,0,0.5,21
+EOF
+  $spectra < dummy > /dev/null
+  mv Akw_spectra Akw_spectra_MX$file
+  mv Spectra Spectra_MX$file
+  #
+  # (pi,0)  M-->X
+  #
+  cat <<EOF> dummy
+  $file
+  3.1415927,0,0,0,0.5,21
+EOF
+  $spectra < dummy > /dev/null
+  mv Akw_spectra Akw_spectra_XG$file
+  mv Spectra Spectra_XG$file
+  cat resis.dat >> resistivity.dat
+  
+  
+  
+  #
+  # Optionally, compress the data files
+  #
+  if let "cflag > 0"; then
+    bzip2 "bins$file"
+    if let "cflag > 1"; then
+      bzip2 "sigma$file.dat"
+    fi
+  fi
+done
+
+exit

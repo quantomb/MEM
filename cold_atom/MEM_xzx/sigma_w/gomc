@@ -1,0 +1,80 @@
+#!/bin/bash
+#----------------------------------------------------
+#path and filename
+#----------------------------------------------------
+mem_root=/home/zhaoxin/Codes/MEM
+#-----------------------------------------------------
+# default file and initial images
+#-----------------------------------------------------
+cp $mem_root/mcdata/hub_2d_n085/binsw2062.dat ./binsw.dat
+cp $mem_root/mcdata/hub_2d_n085/data2062 ./data
+cp $mem_root/mcdata/hub_2d_n085/sigma2062.dat ./sigma.dat
+#for annealing algorithm
+#cp model_dos deflt.dat
+#cp model_dos f0.dat
+#cp $mem_root/results/BRYAN/HUBB4AU2B4/$1.dat deflt.dat
+#cp $mem_root/results/BRYAN/HUBB4AU2B4/$1.dat f0.dat
+cp $mem_root/results/dos_D/B37.dat deflt.dat
+cp $mem_root/results/dos_D/B37.dat f0.dat
+#-----------------------------------------------------
+#create parameter file for rdbin.f
+#-----------------------------------------------------
+#remove old one
+rm -f rdinput.txt
+#create new one by add a line for output file name
+rdoutfile=rdout.dat
+echo $rdoutfile > rdinput.txt
+#select G(k,w_n): 0
+echo 0 >> rdinput.txt
+#number of input file
+echo 1 >> rdinput.txt
+#number of bins
+echo 8000 >> rdinput.txt
+#number of Matsubara Freqnecy
+echo $2 >> rdinput.txt
+#Pmin
+echo 1e-200 >> rdinput.txt
+#coarse grain size
+echo 1 >> rdinput.txt
+#print Histogram or not?
+echo y >> rdinput.txt
+#data file
+echo data >> rdinput.txt
+#input file name
+echo binsw.dat >> rdinput.txt
+#ick index
+echo $1 >> rdinput.txt
+#
+#run rdbin
+./rddcams < rdinput.txt
+#-------------------------------------------------------
+#create parameter file for readmc.f
+#-------------------------------------------------------
+#remove the old one
+rm -f mcinput.txt
+#input file name, i.e. output file of rdbins.f
+echo $rdoutfile > mcinput.txt
+#output file name
+rdmcoutfile=mcms.dat
+echo $rdmcoutfile >> mcinput.txt
+#default file name
+dftfile=deflt.dat
+echo $dftfile >> mcinput.txt
+#eigenvalue file name
+eigfile=eig.dat
+echo $eigfile >> mcinput.txt
+#value of range, machine precision
+echo 1.12E-020 >> mcinput.txt
+#type of kernel
+echo 6 >> mcinput.txt
+#
+#run readme
+./readmc_linuxms < mcinput.txt
+#-------------------------------------------------------
+# move to tmp_data
+#-------------------------------------------------------
+mv rdout.dat ../tmp_data/rdbinout.dat
+mv mcms.dat ../tmp_data/mc.dat
+cp deflt.dat ../tmp_data/deflt.dat
+cp deflt.dat ../tmp_data/f0.dat
+mv eig.dat ../tmp_data/eig.dat

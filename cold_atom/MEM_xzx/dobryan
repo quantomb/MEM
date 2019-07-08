@@ -1,0 +1,22 @@
+#source ./path_betts $1 $2
+source ./path_use $1 $2
+#cp results/tmp_MC/mc_$1.dat tmp_data/mc.dat
+#cp results/MC/S2_L128_B2_ct/mc_$1.dat tmp_data/mc.dat
+#cp wwwreadmc/deflt.dat tmp_data/deflt.dat
+#cp wwwreadmc/f0.dat tmp_data/f0.dat
+#cp results/BRYAN/S2_L128_B4/$1_bak.dat tmp_data/deflt.dat
+#cp results/BRYAN/S2_L128_B4/$1_bak.dat tmp_data/f0.dat
+cd BRYAN
+##cd ../wwwbryan
+./gobryan $1 $2
+#mv dosQMC ../results/$1.dat
+##mv fort.98 ../results/$2.dat
+#mv error.dat ../results/$1_error.dat
+#cd ../tmp_data/
+#mv final.agr ../results/$1.agr
+#cd ../results/
+#cp $1.dat $1_bak.dat
+#./app_q.out $1.dat > $1.bak
+#rm $1.dat
+#mv $1.bak $1.dat
+cd ..

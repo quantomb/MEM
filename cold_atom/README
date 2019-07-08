@@ -1,0 +1,57 @@
+------------------------------------------------------------------------
+Copyright
+=========
+ The copyright of the following codes belong to:
+ Dr. Mark Jarrell, Dr. Juana Moreno and Dr. Zhaoxin Xu
+ 
+ Please ask for permission before using and modified them.  
+------------------------------------------------------------------------
+content
+=======
+This directory contains 
+1) the modified QUEST package: dqmc_tdmx
+2) the modified Maximum Entropy Method code: MEM_xzx
+
+
+Directory structure
+===================
+1) dqmc_tdmx
+   SRC: source code for dqmc lib in which dqmc_tdxmRT.F90 is the F90 
+        module for measuring chiKK and chiDD. Please find the related
+        note: cvs-home/papers/linear_response_optical_lattice/note_v3.0.tex
+
+   APPLY: applications, focus on using dqmc_tdmxRT.F90
+          sub-directories are:
+          a) parallel: 2D square lattice, parallel computing for non binned data
+          b) parallel: 3D Cubic lattice, parallel computing for non binned data
+          c) tdm_2d_mpi: 2D square lattice, parallel computing for binned data of
+             time-dependent quantities 
+          d) tdm_3d_mpi: 3D Cubic lattice, parallel computing for binned data of
+             time-dependent quantities
+          e) tdm: single process version for measuring time-dependent quantities
+
+2) MEM_xzx
+   BRYAN: the Bryan code by Mark
+   readmc_tdmx: modified code of rddcams.f and readmc_linuxms.f for output by dqmc_tdmx
+   readmc_w: modified code of rddcams.f and readmc_linuxms.f for MEM using 
+             Matsubara frequency for spin chains
+   readmc_e: modified code of rddcams.f and readmc_linuxms.f for MEM measuring specific heat
+   sigma_w:  modified code of rddcams.f and readmc_linuxms.f for MEM using 
+             Matsubara frequency for Greens' function
+   path_use: shell script for path of MC data and output of MEM data
+   onedqmc:  shell script for dqmc_tdmx MC data and output of MEM data
+             usage: 
+             a) start from default model:
+                ...MEM$ ./onedqmc B4kkt B4kkt 1080 1 def
+                where: B4kkt (first): index for output data
+                       B4kkt (second): index for MC data
+                       1080: number of data bins
+                          1: coarse grain size
+                        def: flag for using Gaussian default model
+             b) annealing method
+                ...MEM$ ./onedqmc B5ddt B4ddt 1080 1
+                where: B5ddt (first): index for output data
+                       B4ddt (second): index for MC data (input)
+                       1080: number of data bins
+                          1: coarse grain size
+------------------------------------------------------------------------       

@@ -1,0 +1,3 @@
+cp rdbinout.dat ../results/tmp_MC/rdout_$1.dat
+cp eig.dat ../results/tmp_MC/eig_$1.dat
+cp mc.dat ../results/tmp_MC/mc_$1.dat

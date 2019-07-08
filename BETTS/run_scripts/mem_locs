@@ -1,0 +1,57 @@
+#!/bin/bash
+# This file contains the locations of executables needed for MEM
+# analysis of data produced by the 2D_HUBBARD_DCA (and likely other)
+# QMC codes.  It should be placed in your home directory.  You will
+# likely also have to change the paths to the bryan and Betts codes
+# as well as the run scripts, below
+#
+pathtobetts=$HOME/Desktop/CERVISIA/MEM/BETTS
+pathtobryan=$HOME/Desktop/CERVISIA/MEM/BRYAN
+pathtorun=$HOME/Desktop/CERVISIA/MEM/BETTS/run_scripts
+#
+################################################################################
+# You probably should not have to change the paths below this line
+################################################################################
+#
+# Path to some of the executables
+#
+readmc="$pathtobetts/readmc_linuxms"
+rddca="$pathtobetts/rddcams"
+rddca_sig="$pathtobetts/rddca_sig"
+rddcams_nb="$pathtobetts/rddcams_nb"
+dsigcluster="$pathtobetts/dsigcluster"
+dsigcluster_sig="$pathtobetts/dsigcluster_sig"
+sopt_dca="$pathtobetts/sopt_dca"
+spectra="$pathtobetts/spectra_star"
+eta="$pathtobetts/eta"
+energy_surface="$pathtobetts/energy_surface"
+twodefault="$pathtobetts/2default"
+#
+bryan="$pathtobryan/bryan_linux"
+strip1="$pathtobryan/strip1"
+model_filter="$pathtobetts/model_filter"
+#
+# Paths to some linux executables we use
+#
+xmgr="/usr/bin/xmgrace"
+gnuplot="/usr/bin/gnuplot"
+#
+# Path to some of the run scripts 
+#
+runone_mem="$pathtorun/runone"
+runone_nb="$pathtorun/runone_nb"
+run_falsecolor="$pathtorun/run_falsecolor"
+run_spectra="$pathtorun/run_spectra"
+run_all_SP="$pathtorun/run_all_SP"
+run_all_TP="$pathtorun/run_all_TP"
+run_all_SP_2D="$pathtorun/run_all_SP_2D"
+run_all_SP_3D="$pathtorun/run_all_SP_3D"
+run_all_DOS="$pathtorun/run_all_DOS"
+run_all_DOS_nb="$pathtorun/run_all_DOS_nb"
+run_list_DOS="$pathtorun/run_list_DOS"
+run_list_Akw="$pathtorun/run_list_Akw"
+run_list_SP="$pathtorun/run_list_SP"
+run_list_SP_2D="$pathtorun/run_list_SP_2D"
+run_all_spectra_2D="$pathtorun/run_all_spectra_2D"
+run_all_eta_2D="$pathtorun/run_all_eta_2D"
+

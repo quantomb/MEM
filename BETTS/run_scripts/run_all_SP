@@ -1,0 +1,273 @@
+#!/bin/bash
+#
+# This bash script analytically continues the coarse-grained single particle 
+# spectra, 
+#
+#     N(w) and Abar(K,w) . 
+#
+# dsigcluster employs a hilbert transform and a root finder to calculate
+#
+#    Gbar(K,w)  and Sigma(K,w)
+#
+# and Sigma is printed into the files SigmaFILE_ick.dat.  
+#
+# Inputs to this script include a sequence of files starting with the first 
+# argument # $1 and ending with the second $2.  The job, and other 
+# parameters are set by the other arguments:
+#
+#             $1    $2    $3  $4    $5    $6    $7     $8    $9
+# runall_mem file1 file2 Ncw aflag Pmin coarse print cflag  job
+# example: ./run_all_SP 2002 2017 6 3 0.01 12 0 0 2
+#
+# which are explained if the script is run without arguments (i.e. runall).
+# 
+# SET SOME PATHS
+#
+source ~/mem_locs
+#
+# Establish some more meaningful variables
+#
+file1=$1
+file2=$2
+Ncw=$3
+aflag=$4
+pmin=$5
+coarse=$6
+idraw=$7
+cflag=$8
+job=$9
+#
+# If no arguments are given, give help
+#
+if [ "$file1" = "" ] ; then
+  echo 'run_all_SP file1 file2 Ncw aflag Pmin coarse print cflag job'
+  echo '           file# first and last filenumbers of bins'
+  echo '           Ncw number of K points in the IW  '
+  echo '           aflag   function'
+  echo '             0     Classic  w/JP '
+  echo '             1     Bryan    w/JP '
+  echo '             2     Classic  wo/JP'
+  echo '             3     Bryan    wo/JP'
+  echo '           Pmin   Minimum probablility for data'
+  echo '           coarse coarse-graining bin size'
+  echo '           print  if not 0, then plot Akw (1) and Sigma(2)'
+  echo '           cflag  compression/uncompression level'
+  echo '             0    compress nothing'
+  echo '             1    compress bins files'
+  echo '             2    compress bins and sigma.dat files'
+  echo '           job    analytically continue '
+  echo '            0     Gbar(tau)'
+  echo '            1     Sigma(K,tau) '
+  echo '            2     Sigma(K,iwn) '
+  echo '            3     half Sigma(K,iwn) '
+  echo '            4     M(K,iwn)=1/(iwn-ed-Sig(K,iwn)) Cumulant '
+  exit
+fi
+#
+# If no last argument is given, stop and indicate error
+#
+if [ "$cflag" = "" ] ; then
+  echo '   '
+  echo 'SOME ARGUMENTS ARE MISSING'
+  echo '   '
+  exit
+fi
+if [ $job -eq 0 ] ; then
+job=2
+name=dos
+names=Akw
+binsw=""
+elif [ $job -eq 1 ] ; then
+job=12
+name=sigkw
+names=sigkw
+binsw="w"
+elif [ $job -eq 2 ] ; then
+if [ $Ncw -eq 0 ] ; then
+iDMFT=1
+fi
+job=13
+name=sigkw
+names=sigkw
+binsw="w"
+elif [ $job -eq 3 ] ; then
+job=14
+name=sigkw
+names=sigkw
+binsw="w"
+elif [ $job -eq 4 ] ; then
+job=15
+name=Cumukw
+names=Cumukw
+binsw="w"
+else
+  echo 'bad job'
+  echo 'this script is for single particle spectra'
+  exit
+fi
+#
+# Set the increment between file numbers (must be +/- 1)
+#
+if let "$file1 < $file2" ; then
+  inc=1
+else
+  inc=-1
+fi
+#
+# Uncompress the data
+#
+let "i=$file1"
+while let "i != file2+inc"
+do
+  if [ -s "bins$binsw$i.dat.bz2" ] ; then
+    echo 'uncompressing bins for set ' $i
+    bunzip2 "bins$binsw$i.dat.bz2"
+  fi
+  if [ -s "sigma$i.dat.bz2" ] ; then
+    bunzip2 "sigma$i.dat.bz2"
+  fi
+  let "i=i + inc"
+done
+######
+# iDMFT=1, analytic continue G(Nc=1,iwn) to G(w)
+######
+if [ $iDMFT -eq 1 ] ; then
+ick=1
+cp -f model_dos model_next
+let "i=$file1"
+while let "i != file2+inc"
+do
+  if [ -s "bins$binsw$i.dat" ] ; then
+    echo 'working on the DOS of set ' $i
+    $runone_mem $i $job $ick model_next $aflag $pmin $coarse  0   $idraw
+  else
+    echo '******** skipping set ' $i ' no bins data for this set ********'
+  fi
+  let "i=i + inc"
+done
+###
+# Then obtain SigmaXXXX_X.dat from sigkwXXXx_XQMC:
+###
+  let "i=$file1"
+  while let "i != file2+inc" 
+  do
+    if [ -s "bins$binsw$i.dat" ] ; then
+      echo 'Calculating Sigma(K,w) of set ' $i 'with ick=' $ick
+
+      cp "$name$i"_"$ick"QMC model_next
+cat <<EOF> dummy_run_all_SP
+model_next
+sigma$i.dat
+$ick
+1.0e-6
+0.8
+EOF
+      if [ $job -eq 2 ] ; then
+        $dsigcluster <dummy_run_all_SP>out
+      elif [ $job -eq 15 ] ; then
+	$dsigcluster_M <dummy_run_all_SP>out
+      else
+        $dsigcluster_sig <dummy_run_all_SP>out
+      fi
+      rm -f dummy_run_all_SP out
+      mv -f Sigma.dat Sigma"$i"_"$ick".dat
+    else
+      echo '******** skipping set ' $i ' no bins data for this set ********'
+    fi
+  let "i=i + inc"
+  done
+fi # $iDMFT = 1
+#######
+
+if [ $job -eq 2 ] ; then
+#
+# Analytically continue the DOS only for G data
+#
+ick=0
+cp -f model_dos model_next
+
+let "i=$file1"
+while let "i != file2+inc"
+do
+  if [ -s "bins$i.dat" ] ; then
+    echo 'working on the DOS of set ' $i
+    $runone_mem $i $job $ick model_next $aflag $pmin $coarse  0   $idraw
+  else
+    echo '******** skipping set ' $i ' no bins data for this set ********'
+  fi
+  let "i=i + inc"
+done
+fi
+#
+# Now work on the coarse-grained spectra
+#
+ick=1
+while let "ick <= Ncw"
+do
+  let "i=$file1"
+  cp -f model_$names$ick model_next
+  while let "i != file2+inc"     
+  do
+      if [ -s "bins$binsw$i.dat" ] ; then
+        echo 'working on the spectra of set ' $i 'with ick=' $ick
+        $runone_mem $i $job $ick model_next $aflag $pmin $coarse 0  $idraw
+      else
+        echo '******** skipping set ' $i ' no bins data for this set ********'
+      fi
+      let "i=i + inc"
+  done
+
+  let "ick=ick + 1"
+done
+#
+# Now, starting with Abar(K,w) or sig(K,w), calculate the self energy Sigma(K,w)
+# 
+ick=1
+while let "ick <= Ncw"
+do
+  let "i=$file1"
+  while let "i != file2+inc" 
+  do
+    if [ -s "bins$binsw$i.dat" ] ; then
+      echo 'Calculating Sigma(K,w) of set ' $i 'with ick=' $ick
+
+      cp "$name$i"_"$ick"QMC model_next
+cat <<EOF> dummy_run_all_SP
+model_next
+sigma$i.dat
+$ick
+1.0e-6
+0.8
+EOF
+      if [ $job -eq 2 ] ; then
+        $dsigcluster <dummy_run_all_SP>out
+      elif [ $job -eq 15 ] ; then
+	$dsigcluster_M <dummy_run_all_SP>out
+      else
+        $dsigcluster_sig <dummy_run_all_SP>out
+      fi
+      rm -f dummy_run_all_SP out
+      mv -f Sigma.dat Sigma"$i"_"$ick".dat
+    else
+      echo '******** skipping set ' $i ' no bins data for this set ********'
+    fi
+  let "i=i + inc"
+  done
+let "ick=ick + 1"
+done
+#
+# optionally compress the binned data (cflag>0) and the sigma files (cflag>1)
+# 
+let "i=$file1"
+while let "i != file2+inc"
+do
+  if let "cflag > 0"; then
+    bzip2 "bins$binsw$i.dat"
+  else 
+    if let "cflag > 1"; then
+      bzip2 "sigma$i.dat"
+    fi
+  fi
+  let "i=i + inc"
+done
+exit

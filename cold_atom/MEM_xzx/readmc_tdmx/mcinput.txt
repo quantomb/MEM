@@ -1,0 +1,6 @@
+/home/zhaoxinxu/Codes/MEM/tmp_data/rdbinout.dat
+/home/zhaoxinxu/Codes/MEM/tmp_data/mc.dat
+/home/zhaoxinxu/Codes/MEM/tmp_data/deflt.dat
+/home/zhaoxinxu/Codes/MEM/tmp_data/eig.dat
+1.12E-20
+3

@@ -1,0 +1,84 @@
+#!/bin/bash
+#
+# This bash script analytically continues the coarse-grained single particle 
+# density of states and coarse-grained spectra, 
+#
+#     N(w)  and  Abar(K,w)
+#
+# Inputs to this script are read from the standard input file.  Each line 
+# describes an argument
+#
+#  $1   $2   $3   $4   $5    $6    $7    $8  
+# file  job Ncw aflag Pmin coarse print cflag
+#
+# which are explained if the script is run without arguments (i.e. runall).
+# 
+# SET SOME PATHS
+#
+source ~/mem_locs
+imfirst=0
+while [ true ]
+  do
+  #
+  # readin the parameters
+  #
+  read  file  job Ncw aflag pmin coarse idraw cflag
+  #
+  if [ ! "$file" ]
+    then
+    exit
+  fi
+  if let "imfirst == 0"
+  then
+    #
+    # copy the models to some disposable files
+    #
+    echo 'setting models'
+    ick=1
+    while let "ick <= Ncw"
+    do
+      cp model_Akw$ick dump$ick
+      let "ick=ick + 1"
+    done
+    cp model_dos dumpdos
+    imfirst=1
+  fi
+  #
+  # Uncompress the bin and sigma files if necessary.
+  #
+  if [ -s "bins$file.bz2" ] ; then
+    bunzip2 "bins$file.bz2"
+  fi
+  if [ -s "sigma$file.dat.bz2" ] ; then
+    bunzip2 "sigma$file.dat.bz2"
+  fi
+  #
+  # DOS
+  #
+  echo 'working on the DOS of set ' $file
+  ick=0  
+  $runone_mem $file $job $ick dumpdos $aflag $pmin $coarse 0  $idraw
+  cp -f model_next dumpdos
+  #
+  # Akw
+  #
+  ick=1
+  while let "ick <= Ncw"
+  do
+    echo 'working on the spectra of set ' $file 'with ick=' $ick
+    $runone_mem $file $job $ick dump$ick $aflag $pmin $coarse 0  $idraw
+    cp -f model_next dump$ick
+    let "ick=ick + 1"
+  done
+  #
+  # Optionally, compress the data files
+  #
+  if let "cflag > 0"; then
+    bzip2 "bins$file"
+    if let "cflag > 1"; then
+      bzip2 "sigma$file.dat"
+    fi
+  fi
+done
+
+exit

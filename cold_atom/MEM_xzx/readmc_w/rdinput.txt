@@ -1,0 +1,10 @@
+/home/zhaoxinxu/Codes/MEM/tmp_data/rdbinout.dat
+1
+1600
+1
+1
+y
+5
+y
+n
+/home/zhaoxinxu/Codes/MEM/mcdata/spin1_chain/S1L128B9_ms/B9_64.dat

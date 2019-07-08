@@ -1,0 +1,288 @@
+#!/bin/bash
+# 
+# THIS BASH SCRIPT ANALYTICALY CONTINUES THE DATA IN THE FILE GIVEN BY THE FIRST
+# ARGUMENT $1 using the job $2 at the K point $3 using the model $4 and 
+# aflag $5.  The minimum ftest probabilbity for accepted data is Pmin, $6, and
+# the coarse-graining bin size is $7.  The results are plotted with xmgr if $7 
+# is nonzero.
+#
+#         $1   $2  $3  $4     $5    $6    $7     $8    $9
+# runone file job ick model aflag Pmin  coarse  imasc print
+#
+# SET SOME PATHS (rddca, readmc, bryan, strip1, dsigcluster, xmgr...)
+#
+source ~/mem_locs
+#
+# SET SOME VARIABLES
+#
+file=$1
+job=$2
+ick=$3
+model=$4
+aflag=$5
+pmin=$6
+coarse=$7
+imasc=$8
+print=$9
+alpha=10000000
+#
+# If there are no arguments, write some instructions
+#
+if [ "$1" = "" ] ; then
+  echo 'runone file job ick model aflag Pmin coarse imasc print'
+  echo '           job =1, symmetric fermion'
+  echo '           job =2, asymmetric fermion'
+  echo '           job =3, boson (spin)'
+  echo '           job =4, boson (charge)'
+  echo '           job =5, boson (pair)'
+  echo '           job =6, boson (NMR 0)'
+  echo '           job =11, symmetric fermion sigma(k,tau)'
+  echo '           job =12, asymmetric fermion sigma(k,tau)'
+  echo '           job =13, asymmetric fermion sigma(k,iwn)'
+  echo '           job =14, half asymmetric fermion sigma(k,iwn)'
+  echo '           job =15, Cumulant M(k,iwn)=1/(iwn-ed-sigma(k,iwn))'
+  echo '           ick    =0, ==> r=0'
+  echo '           model  file containing the default model'
+  echo '           aflag          function'
+  echo '             0 classicjp  Classic  w/JP '
+  echo '             1 bryanjp    Bryan    w/JP '
+  echo '             2 classic    Classic  wo/JP'
+  echo '             3 bryan      Bryan    wo/JP'
+  echo '           Pmin   Minimum probablility for data'
+  echo '           coarse coarse-graining bin size'
+  echo '           imasc  0 without ssi method'
+  echo '           imasc  gt 0 with ssi method'
+  echo '                  1  f-space MC with 1/f metric'
+  echo '                  2  f-space MC'
+  echo '                  3  u-space MC'
+  echo '                  4  f-space PT'
+  echo '           print  = 1 ==> plot A_bar'
+  echo '           print  = 2 ==> plot A_bar and Sigma'
+  exit
+fi
+#
+# If no last argument is given, stop and indicate error
+#
+if [ "$print" = "" ] ; then
+  echo '   '
+  echo 'SOME ARGUMENTS ARE MISSING'
+  echo '   '
+  exit
+fi
+#
+#Filtering the model, create model_good
+#
+cat <<EOF > dummy_runone
+$model
+EOF
+$model_filter <dummy_runone>out
+rm -f dummy_runone
+# 
+# Figure out whether dos or dynamic susceptibility is calculated
+# and set the name accordingly.
+#
+if [ $job -le 2 ] ; then
+  ig=0  # read G
+  name=dos
+  kernel=$job
+elif [ $job -eq 3 ] ; then
+  ig=1  # read Chi
+  name=chi
+  kernel=3
+elif [ $job -eq 4 ] ; then
+  ig=2  # read Cha
+  name=cha
+  kernel=3
+elif [ $job -eq 5 ] ; then
+  ig=4  # read Chp
+  name=chp
+  kernel=3
+elif [ $job -eq 6 ] ; then
+  ig=6  # read Chi
+  name=chiO
+  kernel=3
+elif [ $job -eq 11 ] ; then
+  ig=0  # read G(iwn) to make sig(K,tau)
+  name=sigkw
+  kernel=1
+elif [ $job -eq 12 ] ; then
+  ig=0  # read G(iwn) to make sig(K,tau)
+  name=sigkw
+  kernel=2
+elif [ $job -eq 13 ] ; then
+  ig=1  # read G(iwn) to make sig(K,iwn)
+  name=sigkw
+  kernel=6
+elif [ $job -eq 14 ] ; then
+  ig=2  # read G(iwn) to make Imsig(K,iwn)
+  name=sigkw
+  kernel=6
+elif [ $job -eq 15 ] ; then
+  echo 'ac M here....................job=',$job
+  ig=3  # read G(iwn) to make M(K,iwn)
+  name=Cumukw
+  kernel=6  #????
+fi
+# uncompress bins*
+#
+#
+# READIN AND ANALYZE THE BINNED DATA
+# 
+# Generate the inputs to rddca in the file dummy_runone
+#
+if [ $job -le 10 ] ; then
+cat <<EOF > dummy_runone
+dataq$name$1_$ick
+$ig
+1
+80000
+$pmin
+$coarse
+n
+bins$1.dat
+$ick 
+0
+EOF
+else
+cat <<EOF > dummy_runone
+dataq$name$1_$ick
+$ig
+1
+80000
+$pmin
+$coarse
+n
+binsw$1.dat
+sigma$1.dat
+$ick 
+EOF
+fi
+#
+# Run rddca; readin the binned data.
+#
+if [ $job -le 10 ] ; then
+$rddca < dummy_runone > out
+elif [ $job -eq 15 ] ; then
+echo 'ac Cumulant'
+$rddca_sig < dummy_runone > out
+else
+echo 'ac sig'
+$rddca_sig < dummy_runone > out
+fi
+echo 'rddca done'
+#
+# DIAGONALIZE THE COVARIANCE OF THE DATA
+#
+# Generate the inputs to readmc in the file dummy_runone
+#
+cat <<EOF > dummy_runone
+dataq$name$1_$ick
+datar
+model_good
+eigs.agr
+1.e-14
+$kernel
+EOF
+#
+# Run readmc.  Generate the kernel.
+#
+$readmc <dummy_runone >out
+echo 'readmc done'
+rm dummy_runone out
+$strip1 eigs.agr > eigs$name$1_$ick.agr
+#echo 'Done data reduction and analysis'
+#
+# ANALYTICALLY CONTINUE WITH BRYAN
+#
+# first buffer the model, since gfortran does not like having the same
+# file open as two units
+cp -r model_good model1
+cp -r model_good model2
+#
+# Generate the inputs to bryan in the file dummy_runone
+#
+if [ "$aflag" = "0" ]||[ "$aflag" = "2" ]; then
+cat <<EOF > dummy_runone
+datar
+model1
+model2
+$name.agr
+400
+10
+$alpha
+$aflag
+$imasc
+EOF
+if [ "$imasc" = "0" ]; then
+cat <<EOF >> dummy_runone
+1
+EOF
+else
+cat <<EOF >> dummy_runone
+10000,10,4,5340523,1
+ssi$1_$ick
+ss$1_$ick
+1
+EOF
+fi
+elif [ "$aflag" = "1" ]||[ "$aflag" = "3" ]; then
+cat <<EOF > dummy_runone
+datar
+model1
+model2
+$name.agr
+200
+10
+$alpha
+$aflag
+1
+EOF
+else
+echo 'Bad aflag'
+exit
+fi
+rm -f dosQMC
+# removal of dosQMC is required for gnufortran compiler
+$bryan <dummy_runone >out
+$strip1 $name.agr > $name$1_$ick.agr
+$strip1 residual.xvgr > res$name$1_$ick.agr
+cp -f dosQMC $name$1_"$ick"QMC
+cp -f dosQMC model_next
+#rm dummy_runone out
+if [ "$ick" != "0" ] ; then
+if [ "$ig" = "0" ] ; then
+echo 'Done A(K,w) or sig(K,w)',`grep weight $name$1_$ick.agr`
+else
+echo "Done chi''(K,w)/w ",`grep weight $name$1_$ick.agr`
+fi
+else
+if [ "$ig" = "0" ] ; then
+echo 'Done N(w) ', `grep weight $name$1_$ick.agr`
+else
+echo "Done chi''(w)/w ", `grep weight $name$1_$ick.agr`
+fi
+fi
+#if [ "$ick" != "0" ] ; then
+#if [ "$ig" = "0" ] ; then
+#cat <<EOF> dummy_runone
+#fort.98
+#sigma$1.dat
+#$ick
+#0.00000001
+#0.0
+#EOF
+#$dsigcluster <dummy_runone>out
+#rm dummy_runone out
+#echo 'Done self energy calculation'
+#mv Sigma.dat Sigma$1_$3.dat
+#fi
+#fi
+#
+# If $print >0, then use xmgrace to print the results.
+#
+if [ "$print" != "0" ] ; then
+$xmgr $name$1_$ick.agr 2> /dev/null &
+fi
+#if [ "$print" = "2" ] ; then
+#$xmgr Sigma$1_$ick.dat 2> /dev/null &
+#fi

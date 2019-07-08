@@ -1,0 +1,1028 @@
+module DQMC_Hubbard
+#include "dqmc_include.h"
+
+  use DQMC_UTIL
+  use DQMC_CFG
+  use DQMC_PHY0
+  use DQMC_PHY2
+  use _DQMC_MATB
+  use DQMC_SEQB
+  use DQMC_GFUN
+  use DQMC_STRUCT
+  use LAPACK_MOD
+  use BLAS_MOD
+  
+  implicit none 
+  ! 
+  ! This module contains the data type and subroutines for 
+  ! computing DQMC.  This should be the only module that user
+  ! program need to include.
+  !
+  ! The data type is consisted of four parts
+  !    1. Parameters of Hubbard's model and Green's function.
+  !    2. Parameters for Monte Carlo algorithm.
+  !    3. Physical measurements.
+  !    4. Working space.
+  !
+  ! There are only four subroutines for user program to call
+  !    1. DQMC_Readin  : read input
+  !    2. DQMC_Run     : execute DQMC
+  !    3. DQMC_Dump    : write output
+  !    4. DQMC_Current_Config : output current Hubbard-Stratonovich
+  !                             configuration.
+  ! 
+  ! References
+  ! ==========
+  !    [1] Z. Bai, W.Chen, R. Scalettar, I. Yamazaki, "Lecture Notes 
+  !        on Advances of Numerical Methods for Hubbard Quantum Monte
+  !        Carlo Simulation." 
+  !
+  ! List of subroutines
+  ! ===================
+  !    DQMC_Default(Hub) : set the default value of the data type
+  !    DQMC_Readin(Hub, IPT, OPT, ReadStruct) : read in parameters
+  !    DQMC_Init(Hub) : Initialize the data type.
+  !    DQMC_Dump(Hub, OPT) : output the parameters.
+  !    DQMC_Sweep(Hub, nMeas0, v1, v2) : Metropolis algorithm.
+  !    DQMC_Run(Hub) : the main subroutine of DQMC.  
+  !
+  !
+  ! Data Type
+  ! =========
+  !
+  type Hubbard
+     ! Part 1: Parameters of Hubbard's model and Green's function
+     ! ==========================================================
+
+     ! Parameters for problem size
+     integer  :: n                        ! Number of sites
+     integer  :: L                        ! Number of time slices
+
+     ! Parameters for Hubbard model
+     integer  :: n_U
+     real(wp), pointer :: U(:)            ! Param of Potential energy
+     integer  :: n_t                      ! Number of hopping
+     real(wp), pointer :: t(:)            ! Param of Kinetic energy
+     integer  :: n_mu
+     real(wp), pointer :: mu(:)           ! Param of Chemical energy
+     real(wp) :: dtau                     ! size of time slice
+     integer,  pointer :: HSF (:,:)       ! Hubbard-Stratonovich Field
+     logical  :: outputHSF
+     integer  :: n_start, n_end
+     
+     ! Underline structure  
+     type(Struct) :: S                    ! Lattice structure
+     
+
+     ! For Green function computation
+     type(matB)   :: B                    ! 
+     type(seqB)   :: SB                   ! Sequential Bs 
+     type(G_fun)  :: G_up                 ! Green's fun for spin up
+     type(G_fun)  :: G_dn                 ! Green's fun for spin down
+     real(wp), pointer :: V_up(:,:)       !
+     real(wp), pointer :: V_dn(:,:)       !
+     
+     ! Parameters for random number
+     integer  :: idum                     ! random seed for ran2
+     integer  :: seed(4)                  ! random seed for ran1
+
+     ! Auxiliary variables
+     real(wp), pointer :: explook(:,:)    ! Lookup table for computing V
+     logical  :: comp_dn                  ! indicator for wheather computing
+                                          ! G_dn or not
+     logical  :: copy_up                  ! indicator for wheather to copy
+                                          ! G_up to G_dn.
+
+     ! Part 2: Parameters for Monte Carlo algorithm
+     ! ============================================
+     integer  :: nWarm                    ! Number of warm up step
+     integer  :: nPass                    ! Number of measurement step
+     integer  :: nTry                     ! Number of global move
+     real(wp) :: gamma                    ! Parameters for Metopolis alg
+     
+     integer  :: nAccept                  ! The following parameters  
+     integer  :: nReject                  ! are used to dynamically
+                                          ! adjust gamma.
+
+     ! Part 3: Physical measurements
+     ! =============================
+     type(Phy0)   :: P0                   ! Meas0
+     type(Phy2)   :: P2                   ! MeasPair
+     integer      :: nMeas                ! Duration of performing Meas0
+     logical      :: meas2
+
+     ! Part 4: Working space
+     ! =============================
+     type(Wspace) :: WS
+
+  end type Hubbard
+
+  integer, parameter :: NO_MEAS0     = -1
+
+  ! HSF parameter
+  integer, parameter:: HSF_OUTPUT_UNIT = 28
+  integer, parameter:: HSF_INPUT_UNIT  = 27
+  integer, parameter:: HSF_FROM_FILE   =  1
+  integer, parameter:: HSF_FROM_MEMORY =  0
+  integer, parameter:: HSF_RANDOM_GEN  =  -1
+
+
+contains
+
+  !---------------------------------------------------------------------!
+
+  subroutine DQMC_Hub_Config(Hub, cfg)
+    !
+    ! Purpose
+    ! =======
+    !    This subrotine initializes Hubbard model from the configuration.
+    !
+    !
+    ! Pre-assumption
+    ! ==============
+    !    DQMC_default should be called before this.
+    !    Geometry information should be iniitialized before calling this. 
+    !
+    ! 
+    ! Arguments
+    ! =========
+    !
+    type(config), intent(inout)  :: cfg
+    type(Hubbard), intent(inout) :: Hub                   ! Hubbard model
+
+    ! ... Local Variables ...
+    integer :: n_t, n_U, n_mu, L, HSF, nWarm, nPass
+    integer :: seed, nOrth, nWrap, nTry, nBin, nMeas
+    character(len=slen) :: HSF_ipt, HSF_opt
+    logical :: valid
+    real(wp), pointer   :: t(:), U(:), mu(:)
+    real(wp) :: dtau, errrate, difflim
+
+    ! ... Executable ...
+
+    ! integer parameters
+    call CFG_Get(cfg, "HSF",   HSF)
+    call CFG_Get(cfg, "L",     L)
+    call CFG_Get(cfg, "nwarm", nWarm)
+    call CFG_Get(cfg, "npass", nPass)
+    call CFG_Get(cfg, "nmeas", nMeas)
+    call CFG_Get(cfg, "nbin",  nBin)
+    call CFG_Get(cfg, "ntry",  nTry)
+    call CFG_Get(cfg, "seed",  seed)
+    call CFG_Get(cfg, "nwrap", nWrap)
+    call CFG_Get(cfg, "north", nOrth)
+
+    ! Array parameters
+    call CFG_Get(cfg, "t",  n_t,  t)
+    call CFG_Get(cfg, "U",  n_U,  U)
+    call CFG_Get(cfg, "mu", n_mu, mu)
+    
+    ! Real parameters
+    call CFG_Get(cfg, "dtau", dtau)
+    call CFG_Get(cfg, "difflim", difflim)
+    call CFG_Get(cfg, "errrate", errrate)
+
+    if (HSF .eq. HSF_FROM_FILE) then
+       ! open input file
+       if (DQMC_Config_isSet(cfg, "HSFin")) then
+          call CFG_Get(cfg, "HSFin", HSF_ipt)
+          inquire(FILE=trim(HSF_ipt), EXIST=valid)
+          if (valid) then
+             open(HSF_INPUT_UNIT, FILE = trim(HSF_ipt))
+          else
+             call DQMC_Warning("HSF input file does not exist.", 1)
+             HSF = HSF_RANDOM_GEN
+          end if
+       end if
+    elseif (HSF .ne. HSF_FROM_MEMORY .and. HSF .ne. HSF_RANDOM_GEN) then
+       call DQMC_Warning("Invalid HSF input: Use default", HSF)
+       HSF = HSF_RANDOM_GEN
+    end if
+    
+    ! open output file
+    Hub%outputHSF = .false.
+    if (DQMC_Config_isSet(cfg, "HSFout")) then
+       call CFG_Get(cfg, "HSFout", HSF_opt)
+       inquire(FILE=trim(HSF_opt), EXIST=valid)
+       if (valid) then
+          open(HSF_OUTPUT_UNIT, FILE = trim(HSF_opt))
+          Hub%outputHSF = .true.
+       end if
+    end if
+    
+    ! call the function
+    call DQMC_Hub_Init(Hub, U, t, mu, L, n_t, n_U, n_mu, dtau, HSF, &
+         nWarm, nPass, nMeas, nTry, nBin, seed, nOrth, nWrap, &
+         errrate, difflim)
+    
+    call CFG_Set(cfg, "n", Hub%n)
+
+    deallocate(t, mu, U)
+  end subroutine DQMC_Hub_Config
+
+  !---------------------------------------------------------------------!
+
+  subroutine DQMC_Hub_Init(Hub, U, t, mu, L, n_t, n_U, n_mu, dtau, &
+       HSF_IPT, nWarm, nPass, nMeas, nTry, nBin, seed, nOrth, nWrap, &
+       errrate, difflim)
+    !
+    ! Purpose
+    ! =======
+    !    This subrotine initializes Hubbard model.
+    !
+    ! Pre-assumption
+    ! ==============
+    !    DQMC_default should be called before this.
+    !    Geometry information should be iniitialized before calling this. 
+    !
+    ! 
+    ! Arguments
+    ! =========
+    !
+    type(Hubbard), intent(inout) :: Hub                   ! Hubbard model
+    real(wp), intent(in)  :: U(:), t(:), mu(:), dtau      ! Parameters
+    integer,  intent(in)  :: L, n_t, n_U, n_mu
+    integer,  intent(in)  :: HSF_IPT, seed
+    integer,  intent(in)  :: nWarm, nPass, nOrth, nTry
+    integer,  intent(in)  :: nMeas, nBin, nWrap
+    real(wp), intent(in)  :: errrate, difflim
+
+    ! ... Local scalar ...
+    integer  :: n, i, j, HSF, val(8), bins
+    real(wp) :: temp, lambda, Map(Hub%S%nSite)
+    logical  :: lex, neg_u
+    character(80) :: msg
+
+    ! ... Executable ...
+
+    if (.not. Hub%S%checklist(STRUCT_INIT)) then
+       call DQMC_Error("Must initialize lattice geometry first", 0)
+    end if
+
+    Hub%n        = Hub%S%nSite
+    n            = Hub%n
+
+    Hub%L        = L
+    Hub%dtau     = dtau
+
+    ! t parameter
+    if (n_t .ne. Hub%S%n_t) then
+       if (n_t .eq. 1 .and. Hub%S%n_t .gt. 1) then
+          ! special case for checkerboard method
+          Hub%n_t  = Hub%S%n_t
+          allocate(Hub%t(Hub%S%n_t))
+          Hub%t    = t(1)
+       else
+          write(msg, "(a,i5, a, i5)") "Input lattice requires ", Hub%S%n_t, &
+               " hoppings, but only reads ", n_t 
+          call DQMC_Error(msg, 0)
+       end if
+    else
+       Hub%n_t = n_t
+       allocate(Hub%t(n_t))
+       Hub%t = t
+    end if
+
+    ! U parameter
+    Hub%n_U      = n_U
+    allocate(Hub%U(n_U))
+    Hub%U        = U
+    
+    ! mu parameter
+    Hub%n_mu     = n_mu
+    allocate(Hub%mu(n_mu))
+    Hub%mu       = mu
+    do i = 1, n
+       Map(i) = mu(Hub%S%Map(i))
+    end do
+
+    ! In negative U model, up=dn 
+    Hub%comp_dn = .true.
+    Hub%copy_up = .false.
+
+    neg_u = .false.
+    if (all(U.lt.ZERO)) then
+       Hub%comp_dn = .false.
+       neg_u = .true.
+    else                        ! U > 0
+       if (all(mu .eq. ZERO) .and. Hub%S%checklist(STRUCT_PHASE)) then 
+          Hub%comp_dn = .false.
+          Hub%copy_up = .true.
+       end if
+    end if
+
+    ! Parameters for MC loop
+    Hub%nWarm    = nWarm
+    Hub%nPass    = nPass
+    Hub%nMeas    = nMeas
+    Hub%nTry     = nTry
+
+    ! Initialize random seeds
+    Hub%idum     = seed
+    if (Hub%idum .eq. 0) then
+       call date_and_time(VALUES=val)
+       Hub%idum = val(8)*val(7)+val(6)**mod(val(5),5)
+    end if
+
+
+    ! LAPACK random variable generation
+    Hub%seed = Hub%idum * (/1,2,3,4/)
+    Hub%seed = mod(abs(Hub%seed), 4095)
+    if (mod(Hub%seed(4),2) .eq. 0) then
+       Hub%seed(4) = Hub%seed(4) + 1
+    end if
+    
+    ! Initialize auxiliary variables
+    Hub%gamma   = HALF
+    Hub%nAccept = 1
+    Hub%nReject = 0
+
+    ! Initialize working space 
+    call DQMC_WSpace_Allocate(n, Hub%S%n_b, Hub%WS)
+
+    ! Initialize Hubbard-Stratonovich Field
+    HSF = HSF_IPT
+    if (HSF .eq. HSF_FROM_MEMORY) then
+       if (.not. associated(Hub%HSF)) then
+          call DQMC_Warning("Cannot use current HSF. ", 0)
+          HSF = HSF_RANDOM_GEN
+       else
+          print *, "Read HSF from memory."
+       end if
+    else
+       allocate(Hub%HSF(n,L))
+    end if
+    
+    if (HSF .eq. HSF_FROM_FILE) then
+       inquire(UNIT=HSF_INPUT_UNIT, EXIST=lex)       
+       if (lex) then
+          ! If a valid input file handle is provided,
+          ! read HSF from the file
+          call DQMC_Hub_Input_HSF(Hub%n, Hub%L, Hub%HSF, HSF_INPUT_UNIT)
+          print *, "Read HSF from a file."
+       else
+          ! If file does not exist, give a warning message.
+          call DQMC_Warning("HSF file does not exist. &
+               & Use random generated values.", HSF)
+          HSF = HSF_RANDOM_GEN
+       end if
+    end if
+    
+    if (HSF .eq. HSF_RANDOM_GEN) then
+       print *, "Generate HSF randomly."
+       ! Otherwise, generate them randomly
+       Hub%HSF = ONE
+       do i = 1, Hub%L
+          call ran0(n, Hub%WS%R5, Hub%seed)
+          where(Hub%WS%R5 .gt. HALF) Hub%HSF(:,i) = -ONE
+       end do
+    end if
+    
+    ! Initialize lookup table
+    nullify(Hub%explook)
+    allocate(Hub%explook(-2:2,1:n_U))
+    
+    do j = 1, n_U
+       temp = exp(dtau*U(j)*HALF)    
+       lambda = log(temp+sqrt(temp*temp-ONE))
+       do i = -2, 2
+          Hub%explook(i,j)=exp(i*lambda)
+       end do
+    end do
+    
+    ! Initialize V matrices
+    !    The element of V(i) is either exp(nu) or exp(-nu)
+    !    where nu = acosh(exp(U*dtau/2)). (see reference [1].) 
+    !    The values of exp(nu) and exp(-nu) are stored in a lookup 
+    !    table explook.  The decision of wheather V(i,j) is exp(nu) 
+    !    or exp(-nu) is given by the list hub, which is a list 
+    !    or random +1 and -1. Matrix V for spin up and down have
+    !    opposite selection decision.
+    ! 
+    allocate(Hub%V_up(n,L))
+    do i = 1, L
+       do j = 1, n
+          Hub%V_up(j,i) = Hub%explook(Hub%HSF(j,i), Hub%S%map(j))
+       end do
+    end do
+
+    if (.not. neg_u) then
+       allocate(Hub%V_dn(n,L))
+       do i = 1, L
+          do j = 1, n
+             Hub%V_dn(j,i) = Hub%explook(-Hub%HSF(j,i), Hub%S%map(j))
+          end do
+       end do
+    end if
+
+    ! Initialize Green functions
+    call DQMC_B_Init(n, Hub%B, Hub%WS, Hub%S%T, Hub%t, Map, dtau)
+
+    call DQMC_SeqB_Init(n, Hub%L, nOrth, Hub%B, Hub%SB, Hub%WS)
+
+    call DQMC_GFun_Init(n, L, Hub%G_up, Hub%V_up,  Hub%WS, &
+                        nWrap, difflim, errrate, GMAT_UP)
+
+    ! for positive U, we need to construct G_dn implicitly
+    if (.not. neg_u) then
+       call DQMC_GFun_Init(n, L, Hub%G_dn, Hub%V_dn,  Hub%WS, &
+                           nWrap, difflim, errrate, GMAT_DN)
+    else
+       ! Negactive U or U=0, G_dn can be got from G_up
+       call DQMC_Gfun_Clone(Hub%G_dn, Hub%G_up)
+    end if
+
+    ! Initialize measurements
+    bins = nBin
+    if (nBin .gt. nPass) then
+       bins = nPass
+    end if
+    if (bins .gt. 0) then
+       call DQMC_Phy0_Init(Hub%P0, Hub%S, nBin, Hub%WS)
+       call DQMC_Phy2_Init(Hub%P2, nBin, Hub%S, Hub%WS)
+       Hub%meas2 = .true.
+    end if
+
+    ! Initialize simulation range
+    Hub%n_start = 1
+    Hub%n_end   = n
+
+  end subroutine DQMC_Hub_Init
+
+  !---------------------------------------------------------------------!
+
+  subroutine DQMC_Hub_Free(Hub)
+    !
+    ! Purpose
+    ! =======
+    !    This subrotine deallocate variables in Hubbard
+    !
+    ! Arguments
+    ! =========
+    !
+    type(Hubbard), intent(inout) :: Hub  ! Hubbard model
+
+    ! ... Executable ...
+
+    call DQMC_B_Free(Hub%B)    
+    call DQMC_Gfun_Free(Hub%G_up)
+    call DQMC_Gfun_Free(Hub%G_dn)
+
+    call DQMC_Phy0_Free(Hub%P0)
+    call DQMC_Phy2_Free(Hub%P2)
+
+    deallocate(Hub%HSF, Hub%explook, Hub%t, Hub%mu, Hub%U, Hub%V_up, Hub%V_dn)
+
+    call DQMC_WSpace_Free(Hub%WS)
+
+    call DQMC_SeqB_Free(Hub%SB)
+    call DQMC_Struct_Free(Hub%S)
+
+  end subroutine DQMC_Hub_Free
+
+  !---------------------------------------------------------------------!
+
+  subroutine DQMC_Hub_Output_HSF(n, L, HSF, OPT)
+    !
+    ! Purpose
+    ! =======
+    !    This subrotine outputs Hubbard-Stratonovich Field to a
+    !    output file OPT.
+    !
+    ! Arguments
+    ! =========
+    !
+    integer, intent(in) :: n, L         ! dim of HSF
+    integer, intent(in) :: HSF(n,L)     ! Hubbard-Stratonovich Field
+    integer, intent(in) :: OPT          ! output handle
+    ! ... local varaible ...
+    Integer :: i, j
+
+    ! ... Executable ....
+
+    do i = 1, l
+       do j = 1, n
+          write(OPT,*) HSF(j,i)
+       end do
+    end do
+  end subroutine DQMC_Hub_Output_HSF
+
+  !---------------------------------------------------------------------!
+
+  subroutine DQMC_Hub_Input_HSF(n, L, HSF, IPT)
+    !
+    ! Purpose
+    ! =======
+    !    This subrotine reads Hubbard-Stratonovich Field from a
+    !    file OPT.
+    !
+    ! Arguments
+    ! =========
+    !
+    integer, intent(in)  :: n, L         ! dim of HSF
+    integer, intent(out) :: HSF(n,L)     ! Hubbard-Stratonovich Field
+    integer, intent(in)  :: IPT          ! input handle
+    ! ... local varaible ...
+    Integer :: i, j
+
+    ! ... Executable ....
+
+    do i = 1, l
+       do j = 1, n
+          read(IPT,*,ERR=100) HSF(j,i)
+       end do
+    end do
+
+    return
+
+100 call DQMC_Error("cannot read HSF input file:", HSF_INPUT_UNIT)
+
+  end subroutine DQMC_Hub_Input_HSF
+
+  !---------------------------------------------------------------------!
+
+  subroutine DQMC_Hub_OutputParam(Hub, OPT)
+    !
+    ! Purpose
+    ! =======
+    !    This subrotine outputs parameters of Hubbard model and
+    !    computed results.
+    !
+    ! Arguments
+    ! =========
+    !
+    type(Hubbard), intent(in) :: Hub     ! Hubbard model
+    integer, intent(in)       :: OPT     ! output handle
+    
+    ! ... Local ...
+    character(35) :: FMT
+    logical       :: lex
+
+    ! ... Executable ....
+
+    write(OPT,*)  Hub%S%Name(:)
+    if (Hub%n_U .eq. 1) then
+       FMT = FMT_STRDBL
+    else
+       write(FMT, "('(a30,f19.6,(',I3,'(f12.6)))')") Hub%n_U-1
+    end if
+    write(OPT,FMT)         "                          U : ", Hub%U
+    if (Hub%n_t .eq. 1) then
+       FMT = FMT_STRDBL
+    else
+       write(FMT, "('(a30,f19.6,(',I3,'(f12.6)))')") Hub%n_t-1
+    end if
+    write(OPT,FMT)         "                          t : ", Hub%t
+    if (Hub%n_mu .eq. 1) then
+       FMT = FMT_STRDBL
+    else
+       write(FMT, "('(a30,f19.6,(',I3,'(f12.6)))')") Hub%n_mu-1
+    end if
+    write(OPT,FMT)         "                         mu : ", Hub%mu
+    write(OPT,FMT_STRINT)  "             Time slice (L) : ", Hub%L
+    write(OPT,FMT_STRDBL)  "                       dtau : ", Hub%dtau
+    write(OPT,FMT_STRDBL)  "              beta (dtau*L) : ", Hub%dtau*Hub%L
+    write(OPT,FMT_STRINT)  "     Number of warmup sweep : ", Hub%nWarm
+    write(OPT,FMT_STRINT)  "Number of measurement sweep : ", Hub%nPass
+    write(OPT,FMT_STRINT)  "   Frequency of measurement : ", Hub%nMeas
+    write(OPT,FMT_STRINT)  "                Random seed : ", Hub%idum
+    write(OPT,FMT_STRINT)  " Frequency of recomputing G : ", Hub%G_up%nWrap
+    write(OPT,*)            "          Type of matrix B : ", Hub%B%name
+
+    ! Check if the file is valid.
+    if (Hub%outputHSF) then
+       inquire(UNIT=HSF_OUTPUT_UNIT, EXIST=lex)
+       if (lex) then
+          call DQMC_Hub_Output_HSF(Hub%n, Hub%L, Hub%HSF, HSF_OUTPUT_UNIT)
+       else
+          call DQMC_Warning("HSF output file does not initialized.", 1)
+       end if
+    end if
+
+  end subroutine DQMC_Hub_OutputParam
+  
+  !---------------------------------------------------------------------!
+
+  subroutine DQMC_Hub_Print(Hub, OPT)
+    !
+    ! Purpose
+    ! =======
+    !    This subrotine outputs parameters of Hubbard model and
+    !    computed results.
+    !
+    ! Arguments
+    ! =========
+    !
+    type(Hubbard), intent(in) :: Hub     ! Hubbard model
+    integer, intent(in)       :: OPT     ! output handle
+    
+    ! ... Executable ....
+
+    call DQMC_Hub_OutputParam(Hub, OPT)
+    write(OPT, FMT_DBLINE)
+
+    call DQMC_Phy0_Print(Hub%P0, Hub%S, OPT)
+    call DQMC_Phy2_Print(Hub%P2, Hub%S%wlabel, OPT)
+
+  end subroutine DQMC_Hub_Print
+
+  ! --------------------------------------------------------------------!
+
+  subroutine DQMC_Hub_Sweep(Hub, nMeas0)
+    !
+    ! Purpose
+    ! =======
+    !   This subroutine performs the DQMC sweep, which is consisted of 
+    !   four steps. (See [1] for more details.)
+    !
+    !      1. Swap the slice of G and recompute G if necessary.
+    !      2. Metropolis Algorithm
+    !      3. Update the model and perform physical measurement.
+    !      4. Adjust parameters.
+    !
+    !   The first three steps are within a big loop, which run
+    !   through each time slice of G. The major part is the second
+    !   step, which is explained below.
+    !
+    !      1. Try the new configuration by single spin-flip sampling 
+    !         at site j at time slice i.
+    !      2. Compute the probability of this new configuration.
+    !         
+    !             p =  r/(1+gamma*r)    if r < 1
+    !             p =  r/(gamma+r)      if r >=1
+    !        
+    !         where r is the ratio of determinants of Green's function
+    !         of spin up and spin down.
+    !      3. If p > ran, a uniform random number in [0,1], then change
+    !         the configuration and update the Green's function.
+    !
+    ! Arguments
+    ! =========
+    !
+    type(Hubbard), intent(inout),target  :: Hub ! Hubbard model
+    integer, intent(in)           :: nMeas0     ! Duration of measurement
+
+    ! ... paremeters ...
+    integer, parameter  :: DQMC_CHECK_ITER  = 10000
+    integer, parameter  :: DQMC_ADJUST      = 100
+    real(wp), parameter :: DQMC_ACC_UP      = 0.52_wp
+    real(wp), parameter :: DQMC_ACC_LO      = 0.48_wp
+
+    ! ... local scalar ...
+
+    integer  :: i, j, k, n, L         ! Loop iterator
+    integer  :: cnt                   ! Counter for measurement
+    integer  :: accept_cnt            ! Counter for accept in Met-alg
+    real(wp) :: accrat
+    real(wp) :: alpha_up, alpha_dn    ! Change of configuration
+    real(wp) :: p, ran                ! Probability of changing
+    real(wp) :: r_up, r_dn, r         ! Ratio of determinant
+    real(wp) :: gjj                   ! (j,j) element of G_up or G_dn
+    
+    ! To speed up the computation
+    real(wp), pointer :: G_up(:,:), G_dn(:,:)
+    real(wp), pointer :: U_up(:,:), U_dn(:,:)
+    real(wp), pointer :: W_up(:,:), W_dn(:,:)
+    real(wp), pointer :: V_up(:,:), V_dn(:,:)
+    integer,  pointer :: blksz_up, blksz_dn
+    real(wp), pointer :: sgn_up, sgn_dn
+
+    real(wp), pointer :: ranlist(:), explook(:,:)
+    integer,  pointer :: HSF(:,:), map(:)
+    real(wp)  :: gamma
+    logical   :: comp_dn
+
+    ! ... Executable ...
+
+    !=====================! 
+    ! Step 0: Setup alias !
+    !=====================!
+
+    G_up => Hub%G_up%G
+    U_up => Hub%G_up%U
+    W_up => Hub%G_up%W
+    V_up => Hub%G_up%V
+    blksz_up => Hub%G_up%blksz
+    sgn_up  => Hub%G_up%sgn
+
+    G_dn => Hub%G_dn%G
+    U_dn => Hub%G_dn%U
+    W_dn => Hub%G_dn%W
+    V_dn => Hub%G_dn%V
+    blksz_dn => Hub%G_dn%blksz
+    sgn_dn   => Hub%G_dn%sgn
+
+    ranlist => Hub%WS%R7
+    gamma = Hub%gamma
+    explook => Hub%explook
+    HSF     => Hub%HSF
+    comp_dn = Hub%comp_dn
+    map    => Hub%S%map
+
+
+    n = Hub%n    
+    cnt = nMeas0
+    L = Hub%L
+
+    do i = 1, L
+       !==============================! 
+       ! Step 1: Swap the slice of G  !
+       !==============================!
+       call DQMC_GetG(i, Hub%G_up, Hub%SB)
+       if (comp_dn) then
+          call DQMC_GetG(i, Hub%G_dn, Hub%SB)
+       else
+          sgn_up = sgn_dn
+       end if
+
+       !==============================!
+       ! Step 2: Metropolis Algorithm !
+       !==============================!
+       accept_cnt = 0
+
+       call ran0(n, ranlist, Hub%seed)
+
+       do j = Hub%n_start, Hub%n_end
+          ! Try the new configuration by single spin-flip sampling 
+          ! at site j at time slice i.
+          ! See reference [1] for more detail for these formula
+          alpha_up = explook(-2*HSF(j,i), map(j)) - ONE
+          alpha_dn = explook( 2*HSF(j,i), map(j)) - ONE
+
+          gjj = DQMC_Gfun_Getjj(n, j, blksz_up, G_up, U_up, W_up)
+
+          r_up = ONE + (ONE - gjj)*alpha_up
+          if (comp_dn) then
+             gjj = DQMC_Gfun_Getjj(n, j, blksz_dn, G_dn, U_dn, W_dn)
+             r_dn = ONE + (ONE - gjj)*alpha_dn
+          else
+             r_dn = ONE + gjj*alpha_dn
+          end if
+
+          r = abs(r_up * r_dn)
+
+          ! Compute the probability
+          if(r .le. ONE) then
+             p = r/(ONE+gamma*r)
+          else
+             p = r/(gamma+r)
+          end if
+
+          ran = ranlist(j)
+
+          ! Accept 
+          if (p .gt. ran) then
+             accept_cnt = accept_cnt + 1
+
+             if(r_up .lt. ZERO) sgn_up = -sgn_up
+             if(r_dn .lt. ZERO) sgn_dn = -sgn_dn
+             HSF(j,i) = -HSF(j,i)
+
+             ! Update G_up
+             call DQMC_UpdateG(j, alpha_up/r_up, Hub%G_up)
+             V_up(j,i) = V_up(j,i) * (alpha_up + ONE)
+             Hub%G_up%nModify = i
+
+             ! If mu .ne. zero, then update G_dn as well.
+             if (comp_dn) then
+                ! Update G_dn
+                call DQMC_UpdateG(j,  alpha_dn/r_dn, Hub%G_dn)
+             end if
+             V_dn(j,i) = V_dn(j,i) * (alpha_dn + ONE)
+             Hub%G_dn%nModify = i
+
+          endif
+          ! If reject, do nothing, move on.          
+
+       end do
+
+       !============================!
+       ! Step 3: Update and Measure !
+       !============================!
+       ! update G_up/G_dn if there are some updates not applied.
+      
+       call DQMC_ApplyUpdate(Hub%G_up, forced = .true.)
+       if (comp_dn) then
+          call DQMC_ApplyUpdate(Hub%G_dn, forced = .true.)
+       end if
+
+       ! update accept and reject counts
+       Hub%naccept = Hub%naccept + accept_cnt
+       Hub%nreject = Hub%nreject + (n - accept_cnt)
+
+       cnt = cnt - 1
+       if (cnt .eq. 0) then
+          ! construct G_dn for mu = 0
+          if (Hub%copy_up) then
+             do k = 1,n
+                do j = 1,n
+                   G_dn(k,j) = -Hub%S%P(k)*Hub%S%P(j)*G_up(j,k)
+                end do
+                G_dn(k,k) = G_dn(k,k) + ONE 
+             end do
+          end if
+          
+          ! Basic measurement
+          call DQMC_Phy0_Meas(Hub%n, Hub%P0, G_up, G_dn, &
+               Hub%U, Hub%mu, Hub%t, sgn_up, sgn_dn, Hub%S)
+          if (Hub%meas2) then
+             ! Pair measurement
+             r = sgn_up*sgn_dn
+             call DQMC_Phy2_Meas(n, Hub%P2%M1, Hub%P2%M2, &
+                  Hub%P2, Hub%S%B, G_up, G_dn, r)
+             
+             ! Reset the counter
+          end if
+          cnt = nMeas0
+       end if
+       
+    end do
+    
+    !===========================!
+    ! Step 4: Adjust parameters !
+    !===========================!
+    if(Hub%naccept+Hub%nreject .gt. DQMC_CHECK_ITER) then
+       accrat = dble(Hub%naccept)/dble(Hub%naccept+Hub%nreject)
+       if(accrat .gt. DQMC_ACC_UP .or. accrat .lt. DQMC_ACC_LO)then
+          Hub%gamma = Hub%gamma + (accrat - HALF)
+          Hub%gamma = dmax1(ZERO,Hub%gamma)
+          Hub%gamma = dmin1(ONE, Hub%gamma)
+          Hub%naccept = int(DQMC_ADJUST*accrat)
+          Hub%nreject = int(DQMC_ADJUST*(ONE-accrat))
+       endif
+    endif
+
+    call DQMC_UpdateWraps(Hub%G_up)
+    call DQMC_UpdateWraps(Hub%G_dn)
+
+  end subroutine DQMC_Hub_Sweep
+
+  !---------------------------------------------------------------------!
+
+  subroutine DQMC_Hub_Sweep2(Hub, numTry)
+    !
+    ! Purpose
+    ! =======
+    !   This subroutine performs the global moves of DQMC sweep, in which 
+    !   all the Hub(i) on some selected sites are flipped for all slice.
+    !
+    !      1. Try the new configuration.
+    !      2. Compute the probability of this new configuration.
+    !         
+    !             p =  r/(1+gamma*r)    if r < 1
+    !             p =  r/(gamma+r)      if r >=1
+    !        
+    !         where r is the ratio of determinants of Green's function
+    !         of spin up and spin down.
+    !      3. If p > ran, a uniform random number in [0,1], then change
+    !         the configuration and update the Green's function.
+    !
+    ! Arguments
+    ! =========
+    !
+    type(Hubbard), intent(inout)  :: Hub      ! Hubbard model
+    integer, intent(in)           :: numTry   ! Number of Try
+
+    ! ... Local Variables ...
+    real(wp) :: ranList(numTry), siteList(numTry), rat
+    integer  :: i, j, site, n, L, accept, tmp
+    real(wp) :: det_up, det_dn, new_up, new_dn
+    real(wp) :: copy_sgn_up, copy_sgn_dn
+    integer, pointer :: map(:)
+    
+
+    ! ... Executable ...
+
+    n = Hub%n_end
+    L = Hub%L
+    accept = 0
+    if (numTry .le. 0) return
+    Map=> Hub%S%Map
+
+    ! Compute the Green's matrix and the sign
+    call DQMC_ComputeG(L, n, Hub%G_up%sgn, Hub%G_up%G, Hub%G_up%V, &
+         Hub%SB, Hub%G_up%pvt, .true., det_up)
+    call DQMC_ComputeG(L, n, Hub%G_dn%sgn, Hub%G_dn%G, Hub%G_dn%V, &
+         Hub%SB, Hub%G_dn%pvt, .true., det_dn)
+
+    ! get random numbers
+    call ran0(numTry, siteList, Hub%seed)
+    call ran0(numTry, ranList, Hub%seed)
+
+    ! Global move
+    do i = 1, numTry
+       ! Randomly select a site
+       site = int(siteList(i)*n) + 1
+
+       ! Flip its HS field for all the slices
+       do j = 1, L
+          tmp = -Hub%HSF(site,j)
+          Hub%HSF (site,j) = tmp
+          Hub%V_up(site,j) = Hub%explook( tmp, map(site))
+          Hub%V_dn(site,j) = Hub%explook(-tmp, map(site))
+       end do
+       
+       ! Store the value of G first
+       Hub%G_up%tmp = Hub%G_up%G
+       Hub%G_dn%tmp = Hub%G_dn%G
+       copy_sgn_up = Hub%G_up%sgn
+       copy_sgn_dn = Hub%G_dn%sgn
+
+       ! Compute G with new configuration
+       call DQMC_ComputeG(L, n, Hub%G_up%sgn, Hub%G_up%G, Hub%G_up%V, &
+            Hub%SB, Hub%G_up%pvt, .true., new_up)
+       call DQMC_ComputeG(L, n, Hub%G_dn%sgn, Hub%G_dn%G, Hub%G_dn%V, &
+            Hub%SB, Hub%G_dn%pvt, .true., new_dn)
+
+       ! Compute the Det ratio
+       ! rat = abs((new_up*new_dn) / (det_up*det_dn)) 
+       rat = new_up + new_dn - det_up - det_dn
+
+       ! Compare the ratio to a random number
+       if (exp(rat) .ge. ranList(i)) then    
+          ! accept
+          det_up = new_up
+          det_dn = new_dn
+          accept = accept + 1
+       else                  
+          ! reject
+          ! recover the old values
+          Hub%G_up%G = Hub%G_up%tmp
+          Hub%G_dn%G = Hub%G_dn%tmp
+          Hub%G_up%sgn = copy_sgn_up
+          Hub%G_dn%sgn = copy_sgn_dn
+
+          do j = 1, L
+             tmp = -Hub%HSF(site,j)
+             Hub%HSF (site,j) = tmp
+             Hub%V_up(site,j) = Hub%explook( tmp, map(site))
+             Hub%V_dn(site,j) = Hub%explook(-tmp, map(site))
+          end do
+       end if
+    end do
+
+    ! update accept and reject counts
+    Hub%naccept = Hub%naccept + accept
+    Hub%nreject = Hub%nreject + (numTry-accept)
+
+  end subroutine DQMC_Hub_Sweep2
+
+  !---------------------------------------------------------------------!
+
+  subroutine DQMC_Hub_Run(Hub)
+    !
+    ! Purpose
+    ! =======
+    !   This subroutine is the main subroutine for DQMC.
+    !   There are four major wroks
+    !
+    !      1. Compute Green function.
+    !      2. Perform warmup sweep.
+    !      3. Perform actual sweep.
+    !      4. Analyze the measurement. (see DQMC_Phy0)
+    !
+    ! Arguments
+    ! =========
+    !
+    type(Hubbard), intent(inout) :: Hub    ! Hubbard model
+
+    ! ... local scalar ...
+    integer  :: i, j, nIter, nBin
+
+    ! ... Executable ...
+
+    ! Warmup sweep
+    do i = 1, Hub%nWarm
+       ! The second parameter means no measurement should be made.
+       call DQMC_Hub_Sweep(Hub, NO_MEAS0)
+       call DQMC_Hub_Sweep2(Hub, Hub%nTry)
+    end do
+ 
+    ! We divide all the measurement into nBin,
+    ! each having nPass/nBin pass.
+    nBin   = Hub%P0%nBin 
+    nIter  = Hub%nPass/nBin
+    do i = 1, nBin
+       do j = 1, nIter
+          call DQMC_Hub_Sweep(Hub, Hub%nMeas)
+          call DQMC_Hub_Sweep2(Hub, Hub%nTry)
+       end do
+
+       ! Accumulate results for each bin
+       call DQMC_Phy0_Avg(Hub%P0)
+       if (Hub%meas2) then
+          call DQMC_Phy2_Avg(Hub%P2, Hub%S%W)
+       end if
+    end do
+
+    ! Get average result
+    call DQMC_Phy0_GetErr(Hub%P0)
+    if (Hub%meas2) then
+       call DQMC_Phy2_GetErr(Hub%P2)
+    end if
+
+  end subroutine DQMC_Hub_Run
+  
+  !-------------------------------------------------------------------!
+
+end module DQMC_Hubbard

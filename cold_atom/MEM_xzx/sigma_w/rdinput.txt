@@ -1,0 +1,11 @@
+../tmp_data/rdbinout.dat
+0
+1
+7200
+8
+1e-5
+40
+y
+data2002
+binsw2002.dat
+1

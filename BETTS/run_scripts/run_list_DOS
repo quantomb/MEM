@@ -1,0 +1,71 @@
+#!/bin/bash
+#
+# This bash script analytically continues the coarse-grained single particle 
+# density of states, 
+#
+#     N(w) 
+#
+# Inputs to this script are read from the standard input file.  Each line 
+# describes an argument
+#
+#  $1   $2   $3   $4   $5    $6    $7    $8  
+# file  job Ncw aflag Pmin coarse print cflag
+#
+# file is the file number
+# job is the job type
+#  1   symmetric fermion'
+#  2   asymmetric fermion'
+# Ncw is the number of K in the IR
+# aflag determines the MEM algorithm used
+#  0     Classic  w/JP 
+#  1     Bryan    w/JP 
+#  2     Classic  wo/JP
+#  3     Bryan    wo/JP
+# Pmin sets the minimum ftest probability for data to be used
+# coarse set the coarse-graining size for rebinning sequential QMC data
+# print sets the print level 
+# cflag determines whether the bin and sigma files are compressed
+#  0    compress nothing
+#  1    compress bins files
+#  2    compress bins and sigma.dat files
+# 
+# SET SOME PATHS
+#
+source ~/mem_locs
+cp model_dos model_next
+#
+# start reading the parameters
+#
+while [ true ]
+  do
+  read  file  job Ncw aflag pmin coarse idraw cflag
+  #
+  if [ ! "$file" ]
+    then
+    exit
+  fi
+  #
+  # Uncompress the bin and sigma files if necessary and analytically 
+  # continue the DOS.
+  #
+  ick=0
+  echo 'working on the DOS of set ' $file
+  if [ -s "bins$file.bz2" ] ; then
+    bunzip2 "bins$file.bz2"
+  fi
+  if [ -s "sigma$file.dat.bz2" ] ; then
+    bunzip2 "sigma$file.dat.bz2"
+  fi
+  $runone_mem $file $job $ick model_next $aflag $pmin $coarse 0  $idraw
+  #
+  # Optionally, compress the data files
+  #
+  if let "cflag > 0"; then
+    bzip2 "bins$file"
+    if let "cflag > 1"; then
+      bzip2 "sigma$file.dat"
+    fi
+  fi
+done
+
+exit

@@ -1,0 +1,9 @@
+/home/zhaoxinxu/Codes/MEM/tmp_data/mc.dat
+/home/zhaoxinxu/Codes/MEM/tmp_data/deflt.dat
+/home/zhaoxinxu/Codes/MEM/tmp_data/f0.dat
+/home/zhaoxinxu/Codes/MEM/tmp_data/final.agr
+1000
+100
+5535727.0
+bryanjp
+1

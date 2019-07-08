@@ -1,0 +1,56 @@
+# Parameters are specified as follows
+# [name] [type] [array] [critical] [default]
+# where [name] is a string, length<=30.
+#       [type] is an integer.
+#              type = 1, real
+#              type = 2, integer
+#              type = 3, string, length<=30
+#       [array] is T/F.
+#	       array = T, the parameter is an array.
+#              array = F, the parameter is not an array.
+#       [default] is the default value of the parameter
+#		  (the length should be <=30)
+
+# file name of output
+fname	3	F	quest
+
+# dimension of lattice
+n	2	F	16
+nx	2	F	4
+ny	2	F	4
+nz	2	F	2
+
+# Hubbard parameters
+U	1	T	0.0
+mu	1	T	0.0
+dmu	1	F	0.0
+t	1	T	1.0
+dtau	1	F	0.125
+L	2	F	12
+
+# numerical 
+north	2	F	12
+nwrap	2	F	12
+errrate	1	F	0.001
+difflim	1	F	0.001
+
+
+# simulation params
+nwarm	2	F	1000
+npass	2	F	5000
+nmeas	2	F	12
+ntry	2	F	0
+seed	2	F	0
+tausk	2	F	10
+nbin	2	F	10
+nhist	2	F	50
+nitvl	2	F	4
+
+# HSF specification
+HSF	2	F	-1
+HSFin	3	F	HSF.in
+HSFout	3	F	HSF.out
+
+# geometry definition
+gfile	3	F	geom.def
+

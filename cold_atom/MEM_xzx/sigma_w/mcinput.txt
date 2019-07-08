@@ -1,0 +1,6 @@
+../tmp_data/rdbinout.dat
+../tmp_data/mc.dat
+./model_Akw1
+../tmp_data/eig.dat
+1.12E-020
+6

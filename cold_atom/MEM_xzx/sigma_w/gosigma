@@ -1,0 +1,38 @@
+#!/bin/bash
+#----------------------------------------------------
+#path and filename
+#----------------------------------------------------
+mem_root=/home/zhaoxinxu/Codes/MEM
+mc_path=$mem_root/mcdata/HUBB4AU2B1082410
+model_path=$mem_root/results/BRYAN/HUBB4AU2B1
+#-----------------------------------------------------
+# data file and sigma file
+#-----------------------------------------------------
+cp $mc_path/data data
+cp $mc_path/sigma.dat sigma.dat
+cp $model_path/$1.dat tmp_image.dat
+awk 'NR>1' tmp_image.dat > image.dat
+rm -f tmp_image.dat
+#-----------------------------------------------------
+#create parameter file for rdbin.f
+#-----------------------------------------------------
+#remove old one
+rm -f sigcls_input.txt
+#create new one by add a line for output file name
+#image file
+echo image.dat > sigcls_input.txt
+#sigma file
+echo sigma.dat >> sigcls_input.txt
+#ick index
+echo 1 >> sigcls_input.txt
+#tolerance
+echo 1e-8 >> sigcls_input.txt
+#damping ratio
+echo 0.8 >> sigcls_input.txt
+#
+#run dsigcluster
+./dsigcluster < sigcls_input.txt
+#-------------------------------------------------------
+# move to results directory
+#-------------------------------------------------------
+mv Sigma.dat $model_path/Sigma_$1.dat

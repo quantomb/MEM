@@ -1,0 +1,129 @@
+#!/bin/bash
+#
+# This bash script analytically continues the coarse-grained single particle 
+# density of states and coarse-grained spectra, 
+#
+#     N(w)  and Abar(K,w) . 
+#
+# dsigcluster employs a hilbert transform and a root finder to calculate
+#
+#    Gbar(K,w)  and Sigma(K,w)
+#
+# and Sigma is printed into the files SigmaFILE_ick.dat.  
+#
+# Inputs to this script are read from the standard input file.  Each line 
+# describes an argument
+#
+#  $1     $2   $3    $4   $5    $6    $7    $8  
+# file  job Ncw aflag Pmin coarse print cflag
+#
+# file is the file number
+# job is the job type
+#  1   symmetric fermion'
+#  2   asymmetric fermion'
+# Ncw is the number of K in the IR
+# aflag determines the MEM algorithm used
+#  0     Classic  w/JP 
+#  1     Bryan    w/JP 
+#  2     Classic  wo/JP
+#  3     Bryan    wo/JP
+# Pmin sets the minimum ftest probability for data to be used
+# coarse set the coarse-graining size for rebinning sequential QMC data
+# print sets the print level 
+# cflag determines whether the bin and sigma files are compressed
+#  0    compress nothing
+#  1    compress bins files
+#  2    compress bins and sigma.dat files
+# 
+# SET SOME PATHS
+#
+source ~/mem_locs
+#
+# start reading the parameters
+#
+imfirst=0
+while [ true ]
+  do
+  read  file  job Ncw aflag pmin coarse idraw cflag
+  #
+  if [ ! "$file" ]
+    then
+    exit
+  fi
+  if let "imfirst == 0"
+  then
+    #
+    # copy the models to some disposable files
+    #
+    echo 'setting models'
+    ick=1
+    while let "ick <= Ncw"
+    do
+      cp model_Akw$ick dump$ick
+      let "ick=ick + 1"
+    done
+    cp model_dos dumpdos
+    imfirst=1
+  fi
+  #
+  # Uncompress the bin and sigma files if necessary.
+  #
+  if [ -s "bins$file.bz2" ] ; then
+    bunzip2 "bins$file.bz2"
+  fi
+  if [ -s "sigma$file.dat.bz2" ] ; then
+    bunzip2 "sigma$file.dat.bz2"
+  fi
+  #
+  # DOS
+  #
+  echo 'working on the DOS of set ' $file
+  ick=0  
+  $runone_mem $file $job $ick dumpdos $aflag $pmin $coarse 0  $idraw
+  cp -f model_next dumpdos
+  #
+  # Akw
+  #
+  ick=1
+  while let "ick <= Ncw"
+  do
+    echo 'working on the spectra of set ' $file 'with ick=' $ick
+    $runone_mem $file $job $ick dump$ick $aflag $pmin $coarse 0  $idraw
+    cp -f model_next dump$ick
+    let "ick=ick + 1"
+  done
+  #
+  # Now we have the DOS and Akw corressponding to file file.  We  
+  # calculate the self energy, Sigma(K,w), using dsigcluster.
+  #
+  ick=1
+  while let "ick <= Ncw"
+  do
+      echo 'Calculating Sigma(K,w) of set ' $file 'with ick=' $ick
+
+      cp dos"$file"_"$ick"QMC model_next
+      cat <<EOF> dummy
+      model_next
+      sigma$file.dat
+      $ick
+      0.00000001
+      0.0
+EOF
+      $dsigcluster <dummy>out
+      rm dummy out
+      mv Sigma.dat Sigma"$file"_"$ick".dat
+
+    let "ick=ick + 1"
+  done  
+  #
+  # Optionally, compress the data files
+  #
+  if let "cflag > 0"; then
+    bzip2 "bins$file"
+    if let "cflag > 1"; then
+      bzip2 "sigma$file.dat"
+    fi
+  fi
+done
+
+exit

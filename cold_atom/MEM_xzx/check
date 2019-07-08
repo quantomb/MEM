@@ -1,0 +1,10 @@
+rm -f temp_check.txt
+echo "k=" $1 > temp_check.txt
+for(( i=16;i<=32;i++ ))
+do
+	./domc 0 $1 $2 1 1 $i
+	./dobryan $1
+	cp results/$1_bak.dat tmp_results/
+        echo "N_w="$i >> temp_check.txt
+	tail -n 15 results/$1.dat >> temp_check.txt
+done

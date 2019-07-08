@@ -1,0 +1,141 @@
+#!/bin/bash
+#
+# THIS SCRIPT ANALYTICALY CONTINUES THE DATA IN THE SEQUENCE OF FILES 
+# FROM THE FIRST ARGUMENT $1 to the second argument $2 using the job 
+# $3 at the sequence of K points 0 to $4 using aflag $5.  The results 
+# are plotted with xmgr if $7 is nonzero.
+#
+# run_all_TP file1 file2 job Ncw aflag pmin coarse print cflag
+#
+# SET SOME PATHS (runone_mem, xmgr, spectra)
+#
+source ~/mem_locs
+#
+# Establish some more meaningful variables
+#
+file1=$1
+file2=$2
+job=$3
+Ncw=$4
+aflag=$5
+pmin=$6
+coarse=$7
+idraw=$8
+cflag=$9
+#
+# If no arguments are given, give help
+#
+if [ "$file1" = "" ] ; then
+  echo 'runall_ch file1 file2 job Ncw aflag Pmin coarse print cflag'
+  echo '           file# first and last filenumbers of bins'
+  echo '           job =3, spin   sus (CHI)'
+  echo '           job =4, charge sus (CHA)'
+  echo '           job =5, pair   sus (CHP)'
+  echo '           Ncw number of K points in the IW  '
+  echo '           aflag   function'
+  echo '             0     Classic  w/JP '
+  echo '             1     Bryan    w/JP '
+  echo '             2     Classic  wo/JP'
+  echo '             3     Bryan    wo/JP'
+  echo '           Pmin   Minimum probablility for data'
+  echo '           coarse coarse graining size'
+  echo '           print  if not 0, then plot chak (1) and Sigma(2)'
+  echo '           cflag  compression/uncompression level'
+  echo '           if 0   compress nothing'
+  echo '           if 1   compress bins files'
+  echo '           if 2   compress bins and sigma.dat files'
+  exit
+fi
+#
+# If no last argument is given, stop and indicate error
+#
+if [ "$cflag" = "" ] ; then
+  echo '   '
+  echo 'SOME ARGUMENTS ARE MISSING'
+  echo '   '
+  exit
+fi
+#
+# determine the naming scheme
+#
+if [ $job -le 2 ] ; then
+  echo 'use the SP scripts for dos or SP spectra'
+  exit
+elif [ $job -eq 3 ] ; then
+  name=chi
+elif [ $job -eq 4 ] ; then
+  name=cha
+elif [ $job -eq 5 ] ; then
+  name=chp
+else
+  echo 'No program for that job, yet'
+  exit 
+fi
+rm $name.dat
+echo '    ick    beta        Chi(T)     Chi(tau=0)' >> $name.dat  
+#
+# Set the increment
+#
+if let "$file1 < $file2" ; then
+  inc=1
+else
+  inc=-1
+fi
+#
+# First analytically continue the local susceptibility
+#
+ick=0
+let "i=$file1"
+cp -f model_$name model_next
+
+while let "i != file2+inc"
+do
+  echo 'working on '$name'(R=0,w) of set ' $i
+  if [ -s "bins$i.bz2" ] ; then
+    bunzip2 "bins$i.bz2"
+  fi
+  if [ -s "sigma$i.dat.bz2" ] ; then
+    bunzip2 "sigma$i.dat.bz2"
+  fi
+  $runone_mem $i $job $ick model_next $aflag $pmin $coarse 0  $idraw
+  let "i=i + inc"
+  cat fort.17 >> $name.dat
+  rm fort.17
+done
+#
+#
+# Now work on the angle resolved coarse-grained susceptibility
+#
+ick=1
+while let "ick <= Ncw"
+do
+  let "i=$file1"
+   cp model_$name\k$ick model_next
+  while let "i != file2+inc"     
+  do
+      echo 'working on '$name'(K,w) of set ' $i 'with ick=' $ick
+      $runone_mem $i  $job $ick model_next $aflag $pmin $coarse 0  $idraw
+      let "i=i + inc"
+      cat fort.17 >> $name.dat
+      rm fort.17
+  done
+
+  let "ick=ick + 1"
+done
+
+#
+# optionally compress the binned data
+# 
+let "i=$file1"
+while let "i != file2+inc"
+do
+  if let "cflag > 0"; then
+    bzip2 "bins$i"
+  else 
+    if let "cflag > 1"; then
+      bzip2 "sigma$i.dat"
+    fi
+  fi
+  let "i=i + inc"
+done
+exit

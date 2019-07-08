@@ -1,0 +1,19 @@
+These scripts run the spectral analysis tools for the 2D_HUBBARD_DCA data.
+Below, I will describe what each script does.  However, generally,
+
+SP: means single-particle
+TP: means two-particle
+list: takes runs from a run list, which you must create.
+all: takes a series of command-line inputs.
+nD: a scipt that specializes in n dimensional data.
+
+_________
+mem_locs:  Put this file in your home directory.  It contains the locations
+of these scripts, the bryan code, and the Betts spectral analysis codes.
+You will have to modify it accordingly.
+_______
+run_all:  These scripts run an uninterupted sequence of data.
+________
+run_list:  These scripts run a sequence of data indexed in a list file.
+For the file format, read the comments at the top of each script.
+

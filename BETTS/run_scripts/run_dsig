@@ -1,0 +1,33 @@
+#!/bin/bash
+#
+# This bash script runs dsigcluster on all K values in the irreducible wedge.
+#
+# SET SOME PATHS (dsigcluster, spectra)
+#
+source ~/mem_locs
+#
+# If there are no arguments, write some instructions
+#
+if [ "$1" = "" ] ; then
+  echo 'run_dsig filenumber Ncw' 
+exit
+fi
+let "ick=1"
+Ncw=$2
+QMC='QMC'
+while let "ick <= Ncw"
+do
+cat <<EOF> dummy
+dos$1_$ick$QMC
+sigma$1.dat
+$ick
+1.0e-6
+0.8
+EOF
+$dsigcluster <dummy>out
+rm dummy out
+mv Sigma.dat Sigma$1_$ick.dat
+echo 'Sigma'$1'_'$ick'.dat done'
+let "ick=ick + 1"
+done
+exit

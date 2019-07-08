@@ -1,0 +1,19 @@
+#!/bin/bash
+#----------------------------------------------------
+#path and filename
+#----------------------------------------------------
+#create parameter file for readmc.f
+#-------------------------------------------------------
+#remove the old one
+rm -f mcinput.txt
+#input file name, i.e. output file of rdbins.f
+efile=N075U6t.dat
+echo $efile > mcinput.txt
+#output file name
+rdmcoutfile=mc.dat
+echo $rdmcoutfile >> mcinput.txt
+#default file name
+dftfile=deflt.dat
+echo $dftfile >> mcinput.txt
+#run readmc_e
+./runmc.out < mcinput.txt

@@ -1,0 +1,13 @@
+source path_betts $1 $2
+#data in BRYAN
+cd BRYAN
+cp dosQMC $destine_path
+cp error.dat $destine_path
+cp residual.xvgr $destine_path
+cp posterior.xvgr $destine_path
+cd ../tmp_data/
+cp rdbinout.dat $destine_path
+cp eig.dat $destine_path
+cp mc.dat $destine_path
+cp final.agr $destine_path
+cd ..

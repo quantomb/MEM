@@ -1,0 +1,67 @@
+#!/bin/bash
+#
+# This bash script runs the code eta which uses the self eneergy to 
+# calculate the particle-particle 
+#
+#  eta(w) = chi''(w)/w
+#
+# Inputs to this script include a sequence of files starting with the first 
+# argument # $1 and ending with the second $2. 
+#
+#             $1    $2   
+# run_all_eta_2D file1 file2 
+#
+# which are explained if the script is run without arguments (i.e. runall).
+# 
+# SET SOME PATHS
+#
+source ~/mem_locs
+#
+# Establish some more meaningful variables
+#
+file1=$1
+file2=$2
+#
+# If no arguments are given, give help
+#
+if [ "$file1" = "" ] ; then
+  echo 'run_all_eta file1 file2'
+  echo '           file# first and last filenumbers '
+  exit
+fi
+#
+# If no last argument is given, stop and indicate error
+#
+if [ "$file2" = "" ] ; then
+  echo '   '
+  echo 'SOME ARGUMENTS ARE MISSING'
+  echo '   '
+  exit
+fi
+#
+# Set the increment between file numbers (must be +/- 1)
+#
+if let "$file1 < $file2" ; then
+  inc=1
+else
+  inc=-1
+fi
+#
+# Now that we have the Sigma(K,w), calculate the bare pp bubble
+#
+#
+let "i=$file1"
+while let "i != file2+inc"     
+do
+#
+# run eta
+#
+cat <<EOF> dummy_eta
+$i
+EOF
+$eta < dummy_eta
+mv weta2.dat weta2_$i.dat
+let "i=i + inc"
+done
+
+exit
